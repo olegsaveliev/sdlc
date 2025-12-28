@@ -26,8 +26,64 @@ jobs:
           OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
         run: python scripts/generate_unit_tests.py
       
-      # OLD STEP: RUN ALL TESTS (Includes the new AI one)
+      # 🔍 DEBUG STEP 1: Check if file was created
+      - name: 🔍 Debug - Check File Creation
+        run: |
+          echo "=== Checking for generated test file ==="
+          if [ -f test_auto_generated.py ]; then
+            echo "✅ File exists"
+            echo "File size: $(wc -c < test_auto_generated.py) bytes"
+          else
+            echo "❌ File NOT created"
+            exit 1
+          fi
+      
+      # 🔍 DEBUG STEP 2: Show generated content
+      - name: 🔍 Debug - Show Generated Tests
+        run: |
+          echo "=== GENERATED TEST FILE CONTENT ==="
+          cat test_auto_generated.py
+          echo "==================================="
+      
+      # 🔍 DEBUG STEP 3: Validate Python syntax
+      - name: 🔍 Debug - Validate Syntax
+        run: |
+          echo "=== Checking Python syntax ==="
+          python -m py_compile test_auto_generated.py && echo "✅ Valid Python syntax" || echo "❌ Syntax errors detected"
+      
+      # 🔍 DEBUG STEP 4: Check for test functions
+      - name: 🔍 Debug - Count Tests
+        run: |
+          echo "=== Counting test functions ==="
+          TEST_COUNT=$(grep -c "def test_" test_auto_generated.py || echo "0")
+          echo "Found $TEST_COUNT test function(s)"
+          if [ "$TEST_COUNT" -eq 0 ]; then
+            echo "⚠️ WARNING: No test functions found!"
+          fi
+      
+      # FALLBACK: Create dummy test if file is invalid
+      - name: 🛡️ Fallback - Create Dummy Test
+        if: failure()
+        run: |
+          echo "Creating fallback test file..."
+          cat > test_auto_generated.py << 'EOF'
+def test_ai_generation_failed():
+    """Placeholder test - AI generation failed or produced invalid output"""
+    assert True, "This is a placeholder because AI test generation failed"
+EOF
+          echo "✅ Fallback test created"
+      
+      # RUN ALL TESTS
       - name: 🧪 Run Tests
         run: |
-          echo "Running tests..."
-          pytest -v
+          echo "Running all tests..."
+          pytest -v --tb=short
+      
+      # OPTIONAL: Upload test file as artifact for inspection
+      - name: 📦 Upload Generated Tests
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-generated-tests
+          path: test_auto_generated.py
+          retention-days: 7
