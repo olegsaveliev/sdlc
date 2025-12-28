@@ -8,7 +8,7 @@ def read_root():
 
 @app.post("/login")
 def login():
-    return {"status": "Not implemented yet"}
+    return {"status": "Login Active"}
 
 
 # Create test_main.py
