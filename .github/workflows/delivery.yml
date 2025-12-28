@@ -1,0 +1,32 @@
+name: Delivery Pipeline
+on: [push, pull_request]
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  # JOB 1: RUN TESTS
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with: { python-version: '3.10' }
+      - name: Install
+        run: pip install -r requirements.txt
+      - name: Test
+        run: pytest
+
+  # JOB 2: AI REVIEW (Only on Pull Requests)
+  ai-review:
+    needs: test
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: CodiumAI Agent
+        uses: Codium-ai/pr-agent@main
+        env:
+          OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
