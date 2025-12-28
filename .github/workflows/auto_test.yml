@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }  # 🔧 FIX: Added fetch-depth to enable git log access
+        with: { fetch-depth: 0 }
       - uses: actions/setup-python@v4
         with: { python-version: '3.10' }
       
@@ -29,7 +29,7 @@ jobs:
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "STEP 1: Installing Python dependencies"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          pip install openai pytest httpx
+          pip install openai pytest httpx requests
           if [ -f requirements.txt ]; then
             echo "📄 Found requirements.txt - installing..."
             pip install -r requirements.txt
@@ -39,7 +39,6 @@ jobs:
       
       # ═══════════════════════════════════════════════════════════
       # STEP 2: Extract Jira Issue Key from Branch/PR/Commits
-      # 🔧 ENHANCED: Now checks commit messages as fallback
       # ═══════════════════════════════════════════════════════════
       - name: 🔍 Extract Jira Issue Key
         id: jira
@@ -49,7 +48,7 @@ jobs:
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
           
-          # Try 1: Extract from branch name (e.g., feature/PROJ-123-add-login)
+          # Try 1: Extract from branch name
           BRANCH_NAME="${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}"
           echo "🔍 Checking branch name: $BRANCH_NAME"
           JIRA_KEY=$(echo "$BRANCH_NAME" | grep -oE '[A-Z]+-[0-9]+' | head -1 || echo "")
@@ -60,7 +59,7 @@ jobs:
             JIRA_KEY=$(echo "${{ github.event.pull_request.title }}" | grep -oE '[A-Z]+-[0-9]+' | head -1 || echo "")
           fi
           
-          # Try 3: Extract from latest commit message (NEW FALLBACK)
+          # Try 3: Extract from commit messages
           if [ -z "$JIRA_KEY" ]; then
             echo "🔍 Checking commit messages..."
             JIRA_KEY=$(git log -5 --pretty=%B | grep -oE '[A-Z]+-[0-9]+' | head -1 || echo "")
@@ -68,12 +67,10 @@ jobs:
           
           if [ -n "$JIRA_KEY" ]; then
             echo "✅ Found Jira issue: $JIRA_KEY"
-            echo "   Source: $(if echo "$BRANCH_NAME" | grep -q "$JIRA_KEY"; then echo "branch name"; elif echo "${{ github.event.pull_request.title }}" | grep -q "$JIRA_KEY"; then echo "PR title"; else echo "commit message"; fi)"
             echo "jira_key=$JIRA_KEY" >> $GITHUB_OUTPUT
             echo "has_jira=true" >> $GITHUB_OUTPUT
           else
-            echo "⚠️  No Jira issue found in branch name, PR title, or commit messages"
-            echo "   💡 TIP: Include Jira key like 'PROJ-123' in your branch name for automatic linking"
+            echo "⚠️  No Jira issue found"
             echo "has_jira=false" >> $GITHUB_OUTPUT
           fi
           echo ""
@@ -329,7 +326,7 @@ jobs:
       
       # ═══════════════════════════════════════════════════════════
       # STEP 10: Post Results to Jira Ticket
-      # 🔧 ENHANCED: Now provides better debugging output
+      # 🔧 FIXED: Using Python for proper JSON encoding
       # ═══════════════════════════════════════════════════════════
       - name: 📝 Post Results to Jira
         if: steps.jira.outputs.has_jira == 'true'
@@ -338,6 +335,10 @@ jobs:
           JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
           JIRA_KEY: ${{ steps.jira.outputs.jira_key }}
+          GITHUB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+          STATUS: ${{ steps.pytest.outputs.status_text }}
+          TEST_COUNT: ${{ steps.results.outputs.test_count }}
         run: |
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "STEP 10: Posting results to Jira ticket $JIRA_KEY"
@@ -347,52 +348,164 @@ jobs:
           if [ -z "$JIRA_BASE_URL" ] || [ -z "$JIRA_USER_EMAIL" ] || [ -z "$JIRA_API_TOKEN" ]; then
             echo "⚠️  Jira credentials not configured - skipping Jira comment"
             echo "   Add secrets: JIRA_BASE_URL, JIRA_USER_EMAIL, JIRA_API_TOKEN"
-            echo ""
-            echo "   Current configuration:"
-            echo "   - JIRA_BASE_URL: $([ -n "$JIRA_BASE_URL" ] && echo '✅ Set' || echo '❌ Missing')"
-            echo "   - JIRA_USER_EMAIL: $([ -n "$JIRA_USER_EMAIL" ] && echo '✅ Set' || echo '❌ Missing')"
-            echo "   - JIRA_API_TOKEN: $([ -n "$JIRA_API_TOKEN" ] && echo '✅ Set' || echo '❌ Missing')"
             exit 0
           fi
           
-          # Read test results
-          SOURCE_FILES=$(cat /tmp/source_files_regression.txt)
-          TEST_FUNCTIONS=$(cat /tmp/test_functions_regression.txt)
-          TEST_OUTPUT=$(cat /tmp/test_results_regression.txt)
-          STATUS="${{ steps.pytest.outputs.status_text }}"
-          TEST_COUNT="${{ steps.results.outputs.test_count }}"
+          # Use Python to properly encode JSON
+          python3 << 'PYTHON_SCRIPT'
+          import os
+          import json
+          import requests
+          from requests.auth import HTTPBasicAuth
           
-          # Create Jira comment body
-          JIRA_COMMENT=$(cat <<EOF
-          {
-            "body": "h2. 🤖 AI Regression Tests - ${STATUS}\n\n*Triggered by:* [GitHub Actions|${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}]\n\n*Branch:* {{${{ github.head_ref || github.ref_name }}}}\n\n*Summary:*\n* Tests Generated: ${TEST_COUNT}\n* Status: ${STATUS}\n\n*Source Files Tested:*\n{code}\n${SOURCE_FILES}\n{code}\n\n*Generated Test Functions:*\n{code:python}\n${TEST_FUNCTIONS}\n{code}\n\n*Test Results:*\n{code}\n${TEST_OUTPUT}\n{code}\n\n---\n_Automated by GitHub Actions CI/CD Pipeline_"
+          # Read test results from files
+          def read_file(path):
+              try:
+                  with open(path, 'r') as f:
+                      return f.read().strip()
+              except:
+                  return "N/A"
+          
+          source_files = read_file('/tmp/source_files_regression.txt')
+          test_functions = read_file('/tmp/test_functions_regression.txt')
+          test_output = read_file('/tmp/test_results_regression.txt')
+          
+          # Get environment variables
+          jira_base_url = os.environ['JIRA_BASE_URL']
+          jira_email = os.environ['JIRA_USER_EMAIL']
+          jira_token = os.environ['JIRA_API_TOKEN']
+          jira_key = os.environ['JIRA_KEY']
+          github_url = os.environ['GITHUB_RUN_URL']
+          branch = os.environ['BRANCH_NAME']
+          status = os.environ['STATUS']
+          test_count = os.environ['TEST_COUNT']
+          
+          # Truncate long outputs
+          if len(test_output) > 3000:
+              test_output = test_output[:3000] + "\n\n... (truncated, see GitHub Actions for full output)"
+          
+          # Create Jira comment using ADF (Atlassian Document Format)
+          comment_body = {
+              "body": {
+                  "type": "doc",
+                  "version": 1,
+                  "content": [
+                      {
+                          "type": "heading",
+                          "attrs": {"level": 2},
+                          "content": [{"type": "text", "text": f"🤖 AI Regression Tests - {status}"}]
+                      },
+                      {
+                          "type": "paragraph",
+                          "content": [
+                              {"type": "text", "text": "Triggered by: ", "marks": [{"type": "strong"}]},
+                              {"type": "text", "text": "GitHub Actions", "marks": [{"type": "link", "attrs": {"href": github_url}}]}
+                          ]
+                      },
+                      {
+                          "type": "paragraph",
+                          "content": [
+                              {"type": "text", "text": "Branch: ", "marks": [{"type": "strong"}]},
+                              {"type": "text", "text": branch, "marks": [{"type": "code"}]}
+                          ]
+                      },
+                      {
+                          "type": "heading",
+                          "attrs": {"level": 3},
+                          "content": [{"type": "text", "text": "Summary"}]
+                      },
+                      {
+                          "type": "bulletList",
+                          "content": [
+                              {
+                                  "type": "listItem",
+                                  "content": [
+                                      {
+                                          "type": "paragraph",
+                                          "content": [
+                                              {"type": "text", "text": f"Tests Generated: {test_count}"}
+                                          ]
+                                      }
+                                  ]
+                              },
+                              {
+                                  "type": "listItem",
+                                  "content": [
+                                      {
+                                          "type": "paragraph",
+                                          "content": [
+                                              {"type": "text", "text": f"Status: {status}"}
+                                          ]
+                                      }
+                                  ]
+                              }
+                          ]
+                      },
+                      {
+                          "type": "heading",
+                          "attrs": {"level": 3},
+                          "content": [{"type": "text", "text": "Source Files Tested"}]
+                      },
+                      {
+                          "type": "codeBlock",
+                          "content": [{"type": "text", "text": source_files}]
+                      },
+                      {
+                          "type": "heading",
+                          "attrs": {"level": 3},
+                          "content": [{"type": "text", "text": "Generated Test Functions"}]
+                      },
+                      {
+                          "type": "codeBlock",
+                          "attrs": {"language": "python"},
+                          "content": [{"type": "text", "text": test_functions}]
+                      },
+                      {
+                          "type": "heading",
+                          "attrs": {"level": 3},
+                          "content": [{"type": "text", "text": "Test Results"}]
+                      },
+                      {
+                          "type": "codeBlock",
+                          "content": [{"type": "text", "text": test_output}]
+                      },
+                      {
+                          "type": "paragraph",
+                          "content": [
+                              {"type": "text", "text": "Automated by GitHub Actions CI/CD Pipeline", "marks": [{"type": "em"}]}
+                          ]
+                      }
+                  ]
+              }
           }
-          EOF
-          )
-          
-          echo "📤 Posting to: ${JIRA_BASE_URL}/rest/api/3/issue/${JIRA_KEY}/comment"
           
           # Post to Jira
-          HTTP_CODE=$(curl -X POST \
-            -H "Content-Type: application/json" \
-            -u "${JIRA_USER_EMAIL}:${JIRA_API_TOKEN}" \
-            -d "$JIRA_COMMENT" \
-            -w "%{http_code}" \
-            -o /tmp/jira_response.txt \
-            "${JIRA_BASE_URL}/rest/api/3/issue/${JIRA_KEY}/comment")
+          url = f"{jira_base_url}/rest/api/3/issue/{jira_key}/comment"
           
-          if [ "$HTTP_CODE" -eq 201 ] || [ "$HTTP_CODE" -eq 200 ]; then
-            echo "✅ Successfully posted comment to Jira ticket ${JIRA_KEY}"
-            echo "   View at: ${JIRA_BASE_URL}/browse/${JIRA_KEY}"
-          else
-            echo "❌ Failed to post to Jira (HTTP ${HTTP_CODE})"
-            echo "Response:"
-            cat /tmp/jira_response.txt
-            echo ""
-            echo "💡 Troubleshooting tips:"
-            echo "   1. Verify Jira credentials are correct"
-            echo "   2. Check if issue ${JIRA_KEY} exists"
-            echo "   3. Ensure API token has permission to comment on issues"
-            echo "   4. Verify JIRA_BASE_URL doesn't have trailing slash"
-          fi
+          print(f"📤 Posting to: {url}")
+          
+          try:
+              response = requests.post(
+                  url,
+                  json=comment_body,
+                  auth=HTTPBasicAuth(jira_email, jira_token),
+                  headers={"Content-Type": "application/json"}
+              )
+              
+              if response.status_code in [200, 201]:
+                  print(f"✅ Successfully posted comment to Jira ticket {jira_key}")
+                  print(f"   View at: {jira_base_url}/browse/{jira_key}")
+              else:
+                  print(f"❌ Failed to post to Jira (HTTP {response.status_code})")
+                  print(f"Response: {response.text}")
+                  print("\n💡 Troubleshooting tips:")
+                  print("   1. Verify Jira credentials are correct")
+                  print(f"   2. Check if issue {jira_key} exists")
+                  print("   3. Ensure API token has permission to comment")
+                  print("   4. Verify JIRA_BASE_URL has no trailing slash")
+          except Exception as e:
+              print(f"❌ Error posting to Jira: {e}")
+          
+          PYTHON_SCRIPT
+          
           echo ""
