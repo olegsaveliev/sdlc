@@ -19,7 +19,7 @@ full_code = ""
 for f in code_files:
     with open(f, "r") as file: full_code += f"\n# FILE: {f}\n{file.read()}\n"
 
-# 4. ASK AI (With Stricter Rules)
+# 4. ASK AI
 print("🧠 AI is writing tests...")
 prompt = f"""
 You are a Python Code Generator.
@@ -41,11 +41,12 @@ response = client.chat.completions.create(
 
 raw_content = response.choices[0].message.content
 
-# 5. THE CLEANER (Fixes your specific error)
-# This regex looks for the first occurrence of "import" or "from" and keeps everything after it.
-match = re.search(r'(import\s+|from\s+.*)', raw_content, re.DOTALL)
+# 5. THE CLEANER (FIXED)
+# We look for "import" or "from", and capture EVERYTHING (.*) until the end of the string
+match = re.search(r'((?:import|from)\s+.*)', raw_content, re.DOTALL)
+
 if match:
-    clean_code = match.group(0)
+    clean_code = match.group(1)
 else:
     # Fallback: Just strip markdown if no imports found
     clean_code = raw_content.replace("```python", "").replace("```", "")
