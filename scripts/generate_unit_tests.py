@@ -31,7 +31,9 @@ Code:
 STRICT RULES:
 1. Return ONLY valid Python code.
 2. DO NOT write explanations, intro text, or markdown.
-3. If the code is just a print statement, write a test that checks if the file runs without error.
+3. Test ONLY what the code actually does - DO NOT assume error handling exists.
+4. If a function accepts any input without validation, test normal cases only.
+5. DO NOT use pytest.raises() unless you see explicit raise statements in the code.
 """
 
 response = client.chat.completions.create(
