@@ -1,4 +1,4 @@
-# Hello Bye Low Code App
+## Hello Bye Low Code App
 
 A simple low code web application that displays "Hello" and "Bye" messages.
 
