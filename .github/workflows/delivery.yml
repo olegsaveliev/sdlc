@@ -1,32 +1,70 @@
-name: Delivery Pipeline
-on: [push, pull_request]
+name: 🚀 Full AI Delivery Pipeline
+
+# TRIGGERS (From your attached file)
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, synchronize]
+  push:
+    branches: [ "main" ]
+
 permissions:
   contents: write
   pull-requests: write
+  issues: write
 
 jobs:
-  # JOB 1: RUN TESTS
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with: { python-version: '3.10' }
-      - name: Install
-        run: pip install -r requirements.txt
-      - name: Test
-        run: pytest
-
-  # JOB 2: AI REVIEW (Only on Pull Requests)
+  # ---------------------------------------------------------
+  # STAGE 1: AI QUALITY GATE (CodiumAI)
+  # ---------------------------------------------------------
   ai-review:
-    needs: test
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && github.event.sender.type != 'Bot'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: CodiumAI Agent
+      - name: AI Code Reviewer
         uses: Codium-ai/pr-agent@main
         env:
           OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # MERGED INSTRUCTIONS FROM YOUR FILE:
+          PR_REVIEWER.EXTRA_INSTRUCTIONS: |
+            1. Security: Check for hardcoded API keys.
+            2. Standards: Ensure we used the new SAFE 6.0 naming conventions.
+            3. Tests: Warn if the user forgot to include unit tests.
+
+  # ---------------------------------------------------------
+  # STAGE 2: TECHNICAL QUALITY GATE (Python Tests)
+  # ---------------------------------------------------------
+  quality-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with: { python-version: '3.10' }
+      
+      - name: Install Dependencies
+        run: |
+          pip install fastapi uvicorn pytest httpx
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+      
+      - name: Run Tests
+        run: pytest
+
+  # ---------------------------------------------------------
+  # STAGE 3: DEPLOYMENT (From your attached file)
+  # ---------------------------------------------------------
+  deploy-production:
+    # CRITICAL: This waits for 'quality-gate' to pass first
+    needs: [quality-gate]
+    # Only deploy if we are on the main branch (Merge completed)
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy
+        run: |
+          echo "🚀 Starting Deployment..."
+          # In a real scenario, your AWS/Azure commands go here.
+          echo "✅ Deployed to Production successfully."
