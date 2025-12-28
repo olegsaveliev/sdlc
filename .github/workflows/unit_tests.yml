@@ -15,28 +15,154 @@ jobs:
       - uses: actions/setup-python@v4
         with: { python-version: '3.10' }
       
-      - name: Install Dependencies
+      # ═══════════════════════════════════════════════════════════
+      # STEP 1: Install Dependencies
+      # ═══════════════════════════════════════════════════════════
+      - name: 📦 Install Dependencies
         run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "STEP 1: Installing Python dependencies"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           pip install pytest httpx openai
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          if [ -f requirements.txt ]; then
+            echo "📄 Found requirements.txt - installing..."
+            pip install -r requirements.txt
+          fi
+          echo "✅ Dependencies installed"
+          echo ""
       
-      - name: 🧹 Clean Old Generated Tests
+      # ═══════════════════════════════════════════════════════════
+      # STEP 2: Show What Files Will Be Tested
+      # ═══════════════════════════════════════════════════════════
+      - name: 🔍 Discovery - Show Source Files
         run: |
-          echo "Removing old AI-generated test files..."
-          rm -f test_auto_generated.py test_ai_generated.py
-          echo "✅ Cleanup complete"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "STEP 2: Discovering source files to test"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "📂 All Python files in repository:"
+          find . -name "*.py" -type f | grep -v __pycache__ | sort
+          echo ""
+          echo "🎯 Files that WILL be tested (after filtering):"
+          SOURCE_FILES=$(find . -name "*.py" -type f | \
+            grep -v test_ | \
+            grep -v generate | \
+            grep -v .venv | \
+            grep -v venv | \
+            grep -v site-packages | \
+            grep -v .github | \
+            grep -v "scripts/" | \
+            grep -v __pycache__ | \
+            sort)
+          
+          if [ -z "$SOURCE_FILES" ]; then
+            echo "⚠️  No source files found!"
+          else
+            echo "$SOURCE_FILES"
+            SOURCE_COUNT=$(echo "$SOURCE_FILES" | wc -l | tr -d ' ')
+            echo ""
+            echo "📊 Total source files: $SOURCE_COUNT"
+            
+            if [ "$SOURCE_COUNT" -gt 1 ]; then
+              echo "⚠️  WARNING: Multiple source files detected!"
+              echo "   AI will generate tests for ALL files listed above."
+              echo "   If you see old files you don't want tested, delete them from the repo."
+            fi
+          fi
+          echo ""
       
-      - name: 🧠 AI Generate Unit Tests
+      # ═══════════════════════════════════════════════════════════
+      # STEP 3: Clean Up Old Generated Tests
+      # ═══════════════════════════════════════════════════════════
+      - name: 🧹 Cleanup - Remove Old Generated Tests
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "STEP 3: Cleaning up old generated test files"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "🗑️  Removing: test_auto_generated.py test_ai_generated.py"
+          rm -f test_auto_generated.py test_ai_generated.py
+          echo "✅ Cleanup complete - starting fresh!"
+          echo ""
+      
+      # ═══════════════════════════════════════════════════════════
+      # STEP 4: AI Generates Unit Tests
+      # ═══════════════════════════════════════════════════════════
+      - name: 🧠 AI Generation - Generate Unit Tests
         env:
           OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
-        run: python scripts/generate_unit_tests.py || echo "Generator script failed but continuing..."
-      
-      - name: 🛡️ Ensure Test File Exists
         run: |
-          if [ ! -f test_auto_generated.py ]; then
-            echo "Creating emergency fallback test..."
-            echo "def test_fallback(): assert True" > test_auto_generated.py
-          fi
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "STEP 4: AI generating unit tests"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          python scripts/generate_unit_tests.py || {
+            echo "⚠️  Generator script failed but continuing..."
+            exit 0
+          }
+          echo ""
       
-      - name: 🧪 Run Tests
-        run: pytest -v --tb=short || true
+      # ═══════════════════════════════════════════════════════════
+      # STEP 5: Show What Tests Were Generated
+      # ═══════════════════════════════════════════════════════════
+      - name: 📋 Results - Show Generated Tests
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "STEP 5: Showing generated test file"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          if [ -f test_auto_generated.py ]; then
+            echo "✅ File created: test_auto_generated.py"
+            echo ""
+            echo "📄 Contents:"
+            echo "─────────────────────────────────────────────────────"
+            cat test_auto_generated.py
+            echo "─────────────────────────────────────────────────────"
+            echo ""
+            TEST_COUNT=$(grep -c "def test_" test_auto_generated.py || echo "0")
+            echo "📊 Total test functions generated: $TEST_COUNT"
+            echo ""
+            echo "🎯 Test functions:"
+            grep "def test_" test_auto_generated.py || echo "None found"
+          else
+            echo "❌ No test file was generated!"
+          fi
+          echo ""
+      
+      # ═══════════════════════════════════════════════════════════
+      # STEP 6: Ensure Test File Exists (Safety Fallback)
+      # ═══════════════════════════════════════════════════════════
+      - name: 🛡️ Safety - Ensure Test File Exists
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "STEP 6: Safety check - ensuring test file exists"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          if [ ! -f test_auto_generated.py ]; then
+            echo "⚠️  No test file found - creating emergency fallback..."
+            echo "def test_fallback(): assert True  # Emergency fallback test" > test_auto_generated.py
+            echo "✅ Fallback test created"
+          else
+            echo "✅ Test file exists - no fallback needed"
+          fi
+          echo ""
+      
+      # ═══════════════════════════════════════════════════════════
+      # STEP 7: Run All Tests
+      # ═══════════════════════════════════════════════════════════
+      - name: 🧪 Execution - Run Tests
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "STEP 7: Running all tests"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "📝 Test files to run:"
+          ls -1 test_*.py 2>/dev/null || echo "No test files found"
+          echo ""
+          echo "🚀 Starting pytest..."
+          echo ""
+          pytest -v --tb=short || true
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ Unit tests workflow complete!"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
