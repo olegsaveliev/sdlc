@@ -24,4 +24,4 @@ jobs:
   # STEP 3: RELEASE
   call-staging:
     needs: call-ai-autotest
-    uses: ./.github/workflows/3_staging.yml
+    uses: ./.github/workflows/staging_release.yml
