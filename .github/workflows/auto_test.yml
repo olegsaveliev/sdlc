@@ -5,6 +5,12 @@ on:
     secrets:
       OPENAI_KEY:
         required: true
+      JIRA_BASE_URL:
+        required: false
+      JIRA_USER_EMAIL:
+        required: false
+      JIRA_API_TOKEN:
+        required: false
 
 jobs:
   generate-and-run:
@@ -31,13 +37,46 @@ jobs:
           echo ""
       
       # ═══════════════════════════════════════════════════════════
-      # STEP 2: Show What Files Will Be Tested
+      # STEP 2: Extract Jira Issue Key from Branch/PR
+      # ═══════════════════════════════════════════════════════════
+      - name: 🔍 Extract Jira Issue Key
+        id: jira
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "STEP 2: Extracting Jira issue key"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          
+          # Try to extract from branch name (e.g., feature/PROJ-123-add-login)
+          BRANCH_NAME="${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}"
+          echo "Branch name: $BRANCH_NAME"
+          
+          # Look for pattern like PROJ-123, ABC-456, etc.
+          JIRA_KEY=$(echo "$BRANCH_NAME" | grep -oE '[A-Z]+-[0-9]+' | head -1 || echo "")
+          
+          if [ -z "$JIRA_KEY" ]; then
+            # Try to extract from PR title or commit message
+            JIRA_KEY=$(echo "${{ github.event.pull_request.title }}" | grep -oE '[A-Z]+-[0-9]+' | head -1 || echo "")
+          fi
+          
+          if [ -n "$JIRA_KEY" ]; then
+            echo "✅ Found Jira issue: $JIRA_KEY"
+            echo "jira_key=$JIRA_KEY" >> $GITHUB_OUTPUT
+            echo "has_jira=true" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️  No Jira issue found in branch name or PR title"
+            echo "has_jira=false" >> $GITHUB_OUTPUT
+          fi
+          echo ""
+      
+      # ═══════════════════════════════════════════════════════════
+      # STEP 3: Show What Files Will Be Tested
       # ═══════════════════════════════════════════════════════════
       - name: 🔍 Discovery - Show Source Files
         id: discovery
         run: |
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "STEP 2: Discovering source files for regression testing"
+          echo "STEP 3: Discovering source files for regression testing"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
           
@@ -73,12 +112,12 @@ jobs:
           echo ""
       
       # ═══════════════════════════════════════════════════════════
-      # STEP 3: Clean Up Old Generated Tests
+      # STEP 4: Clean Up Old Generated Tests
       # ═══════════════════════════════════════════════════════════
       - name: 🧹 Cleanup - Remove Old Generated Tests
         run: |
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "STEP 3: Cleaning up old generated test files"
+          echo "STEP 4: Cleaning up old generated test files"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
           echo "🗑️  Removing: test_auto_generated.py test_ai_generated.py"
@@ -87,14 +126,14 @@ jobs:
           echo ""
 
       # ═══════════════════════════════════════════════════════════
-      # STEP 4: AI Generates Regression Tests
+      # STEP 5: AI Generates Regression Tests
       # ═══════════════════════════════════════════════════════════
       - name: 🤖 AI Generation - Generate 5 Regression Tests
         env:
           OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
         run: |
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "STEP 4: AI generating 5 regression test cases"
+          echo "STEP 5: AI generating 5 regression test cases"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
           python scripts/generate_tests.py || {
@@ -104,13 +143,13 @@ jobs:
           echo ""
       
       # ═══════════════════════════════════════════════════════════
-      # STEP 5: Show What Tests Were Generated
+      # STEP 6: Show What Tests Were Generated
       # ═══════════════════════════════════════════════════════════
       - name: 📋 Results - Show Generated Regression Tests
         id: results
         run: |
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "STEP 5: Showing generated regression test file"
+          echo "STEP 6: Showing generated regression test file"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
           if [ -f test_ai_generated.py ]; then
@@ -141,12 +180,12 @@ jobs:
           echo ""
       
       # ═══════════════════════════════════════════════════════════
-      # STEP 6: Ensure Test File Exists (Safety Fallback)
+      # STEP 7: Ensure Test File Exists (Safety Fallback)
       # ═══════════════════════════════════════════════════════════
       - name: 🛡️ Safety - Ensure Test File Exists
         run: |
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "STEP 6: Safety check - ensuring test file exists"
+          echo "STEP 7: Safety check - ensuring test file exists"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
           if [ ! -f test_ai_generated.py ]; then
@@ -159,13 +198,13 @@ jobs:
           echo ""
 
       # ═══════════════════════════════════════════════════════════
-      # STEP 7: Run Regression Tests
+      # STEP 8: Run Regression Tests
       # ═══════════════════════════════════════════════════════════
       - name: 🧪 Execution - Run Regression Tests
         id: pytest
         run: |
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "STEP 7: Running AI-generated regression tests"
+          echo "STEP 8: Running AI-generated regression tests"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
           pytest test_ai_generated.py -v --tb=short > /tmp/test_results_regression.txt 2>&1 || true
@@ -174,8 +213,10 @@ jobs:
           # Check if tests passed
           if grep -q "passed" /tmp/test_results_regression.txt; then
             echo "status=✅ PASSED" >> $GITHUB_OUTPUT
+            echo "status_text=PASSED" >> $GITHUB_OUTPUT
           else
             echo "status=⚠️ FAILED" >> $GITHUB_OUTPUT
+            echo "status_text=FAILED" >> $GITHUB_OUTPUT
           fi
           echo ""
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -183,7 +224,7 @@ jobs:
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
       
       # ═══════════════════════════════════════════════════════════
-      # STEP 8: Post Results to PR Comment
+      # STEP 9: Post Results to PR Comment (GitHub)
       # ═══════════════════════════════════════════════════════════
       - name: 💬 Post Results to PR
         if: github.event_name == 'pull_request' || github.event.pull_request != null
@@ -192,35 +233,19 @@ jobs:
           script: |
             const fs = require('fs');
             
-            // Read from output variables
             const filesFound = '${{ steps.discovery.outputs.files_found }}';
             const multipleFiles = '${{ steps.discovery.outputs.multiple_files }}';
             const testCount = '${{ steps.results.outputs.test_count }}';
             const expectedCount = '${{ steps.results.outputs.expected_count }}';
             const status = '${{ steps.pytest.outputs.status }}';
             
-            // Read from temp files
             let sourceFiles = 'None';
             let testFunctions = 'None';
             let testOutput = 'No output';
             
-            try {
-              sourceFiles = fs.readFileSync('/tmp/source_files_regression.txt', 'utf8').trim();
-            } catch (e) {
-              sourceFiles = 'None';
-            }
-            
-            try {
-              testFunctions = fs.readFileSync('/tmp/test_functions_regression.txt', 'utf8').trim();
-            } catch (e) {
-              testFunctions = 'None';
-            }
-            
-            try {
-              testOutput = fs.readFileSync('/tmp/test_results_regression.txt', 'utf8').trim();
-            } catch (e) {
-              testOutput = 'No output';
-            }
+            try { sourceFiles = fs.readFileSync('/tmp/source_files_regression.txt', 'utf8').trim(); } catch (e) {}
+            try { testFunctions = fs.readFileSync('/tmp/test_functions_regression.txt', 'utf8').trim(); } catch (e) {}
+            try { testOutput = fs.readFileSync('/tmp/test_results_regression.txt', 'utf8').trim(); } catch (e) {}
             
             let warningSection = '';
             if (multipleFiles === 'true') {
@@ -230,11 +255,6 @@ jobs:
             The AI found multiple source files and generated regression tests for **all of them**:
             \`\`\`
             ${sourceFiles}
-            \`\`\`
-            
-            If you see old files listed above, consider removing them with:
-            \`\`\`bash
-            git rm <old_file.py>
             \`\`\`
             `;
             }
@@ -277,7 +297,6 @@ jobs:
             ---
             *🤖 This comment was automatically generated by AI Regression Tests workflow*`;
             
-            // Try to get the PR number from the event
             const prNumber = context.payload.pull_request?.number || context.issue?.number;
             
             if (prNumber) {
@@ -288,3 +307,59 @@ jobs:
                 body: comment
               });
             }
+      
+      # ═══════════════════════════════════════════════════════════
+      # STEP 10: Post Results to Jira Ticket
+      # ═══════════════════════════════════════════════════════════
+      - name: 📝 Post Results to Jira
+        if: steps.jira.outputs.has_jira == 'true'
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          JIRA_KEY: ${{ steps.jira.outputs.jira_key }}
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "STEP 10: Posting results to Jira ticket $JIRA_KEY"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          
+          if [ -z "$JIRA_BASE_URL" ] || [ -z "$JIRA_USER_EMAIL" ] || [ -z "$JIRA_API_TOKEN" ]; then
+            echo "⚠️  Jira credentials not configured - skipping Jira comment"
+            echo "   Add secrets: JIRA_BASE_URL, JIRA_USER_EMAIL, JIRA_API_TOKEN"
+            exit 0
+          fi
+          
+          # Read test results
+          SOURCE_FILES=$(cat /tmp/source_files_regression.txt)
+          TEST_FUNCTIONS=$(cat /tmp/test_functions_regression.txt)
+          TEST_OUTPUT=$(cat /tmp/test_results_regression.txt)
+          STATUS="${{ steps.pytest.outputs.status_text }}"
+          TEST_COUNT="${{ steps.results.outputs.test_count }}"
+          
+          # Create Jira comment body
+          JIRA_COMMENT=$(cat <<EOF
+          {
+            "body": "h2. 🤖 AI Regression Tests - ${STATUS}\n\n*Triggered by:* [GitHub Actions|${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}]\n\n*Branch:* {{${{ github.head_ref || github.ref_name }}}}\n\n*Summary:*\n* Tests Generated: ${TEST_COUNT}\n* Status: ${STATUS}\n\n*Source Files Tested:*\n{code}\n${SOURCE_FILES}\n{code}\n\n*Generated Test Functions:*\n{code:python}\n${TEST_FUNCTIONS}\n{code}\n\n*Test Results:*\n{code}\n${TEST_OUTPUT}\n{code}\n\n---\n_Automated by GitHub Actions CI/CD Pipeline_"
+          }
+          EOF
+          )
+          
+          # Post to Jira
+          HTTP_CODE=$(curl -X POST \
+            -H "Content-Type: application/json" \
+            -u "${JIRA_USER_EMAIL}:${JIRA_API_TOKEN}" \
+            -d "$JIRA_COMMENT" \
+            -w "%{http_code}" \
+            -o /tmp/jira_response.txt \
+            "${JIRA_BASE_URL}/rest/api/3/issue/${JIRA_KEY}/comment")
+          
+          if [ "$HTTP_CODE" -eq 201 ] || [ "$HTTP_CODE" -eq 200 ]; then
+            echo "✅ Successfully posted comment to Jira ticket ${JIRA_KEY}"
+            echo "   View at: ${JIRA_BASE_URL}/browse/${JIRA_KEY}"
+          else
+            echo "❌ Failed to post to Jira (HTTP ${HTTP_CODE})"
+            echo "Response:"
+            cat /tmp/jira_response.txt
+          fi
+          echo ""
