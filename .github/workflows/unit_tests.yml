@@ -20,6 +20,12 @@ jobs:
           pip install pytest httpx openai
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
       
+      - name: 🧹 Clean Old Generated Tests
+        run: |
+          echo "Removing old AI-generated test files..."
+          rm -f test_auto_generated.py test_ai_generated.py
+          echo "✅ Cleanup complete"
+      
       - name: 🧠 AI Generate Unit Tests
         env:
           OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
