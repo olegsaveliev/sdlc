@@ -17,6 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }  # 🔧 FIX: Added fetch-depth to enable git log access
       - uses: actions/setup-python@v4
         with: { python-version: '3.10' }
       
@@ -37,7 +38,8 @@ jobs:
           echo ""
       
       # ═══════════════════════════════════════════════════════════
-      # STEP 2: Extract Jira Issue Key from Branch/PR
+      # STEP 2: Extract Jira Issue Key from Branch/PR/Commits
+      # 🔧 ENHANCED: Now checks commit messages as fallback
       # ═══════════════════════════════════════════════════════════
       - name: 🔍 Extract Jira Issue Key
         id: jira
@@ -47,24 +49,31 @@ jobs:
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
           
-          # Try to extract from branch name (e.g., feature/PROJ-123-add-login)
+          # Try 1: Extract from branch name (e.g., feature/PROJ-123-add-login)
           BRANCH_NAME="${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}"
-          echo "Branch name: $BRANCH_NAME"
-          
-          # Look for pattern like PROJ-123, ABC-456, etc.
+          echo "🔍 Checking branch name: $BRANCH_NAME"
           JIRA_KEY=$(echo "$BRANCH_NAME" | grep -oE '[A-Z]+-[0-9]+' | head -1 || echo "")
           
+          # Try 2: Extract from PR title
           if [ -z "$JIRA_KEY" ]; then
-            # Try to extract from PR title or commit message
+            echo "🔍 Checking PR title..."
             JIRA_KEY=$(echo "${{ github.event.pull_request.title }}" | grep -oE '[A-Z]+-[0-9]+' | head -1 || echo "")
+          fi
+          
+          # Try 3: Extract from latest commit message (NEW FALLBACK)
+          if [ -z "$JIRA_KEY" ]; then
+            echo "🔍 Checking commit messages..."
+            JIRA_KEY=$(git log -5 --pretty=%B | grep -oE '[A-Z]+-[0-9]+' | head -1 || echo "")
           fi
           
           if [ -n "$JIRA_KEY" ]; then
             echo "✅ Found Jira issue: $JIRA_KEY"
+            echo "   Source: $(if echo "$BRANCH_NAME" | grep -q "$JIRA_KEY"; then echo "branch name"; elif echo "${{ github.event.pull_request.title }}" | grep -q "$JIRA_KEY"; then echo "PR title"; else echo "commit message"; fi)"
             echo "jira_key=$JIRA_KEY" >> $GITHUB_OUTPUT
             echo "has_jira=true" >> $GITHUB_OUTPUT
           else
-            echo "⚠️  No Jira issue found in branch name or PR title"
+            echo "⚠️  No Jira issue found in branch name, PR title, or commit messages"
+            echo "   💡 TIP: Include Jira key like 'PROJ-123' in your branch name for automatic linking"
             echo "has_jira=false" >> $GITHUB_OUTPUT
           fi
           echo ""
@@ -238,6 +247,8 @@ jobs:
             const testCount = '${{ steps.results.outputs.test_count }}';
             const expectedCount = '${{ steps.results.outputs.expected_count }}';
             const status = '${{ steps.pytest.outputs.status }}';
+            const hasJira = '${{ steps.jira.outputs.has_jira }}';
+            const jiraKey = '${{ steps.jira.outputs.jira_key }}';
             
             let sourceFiles = 'None';
             let testFunctions = 'None';
@@ -264,6 +275,13 @@ jobs:
               countWarning = `\n⚠️ **Expected 5 tests, but got ${testCount}**\n`;
             }
             
+            let jiraSection = '';
+            if (hasJira === 'true') {
+              jiraSection = `\n### 🎫 Jira Integration\n✅ Results will be posted to: **${jiraKey}**\n`;
+            } else {
+              jiraSection = `\n### 🎫 Jira Integration\n⚠️ No Jira issue detected. Include issue key in branch name (e.g., \`feature/PROJ-123-description\`) for automatic linking.\n`;
+            }
+            
             const comment = `## 🤖 AI Regression Tests Report
             
             ${status}
@@ -272,6 +290,7 @@ jobs:
             - **Source Files Found:** ${filesFound}
             - **Regression Tests Generated:** ${testCount} ${expectedCount === 'true' ? '✅' : '⚠️'}
             ${countWarning}
+            ${jiraSection}
             
             ### 🎯 Source Files Tested
             \`\`\`
@@ -310,6 +329,7 @@ jobs:
       
       # ═══════════════════════════════════════════════════════════
       # STEP 10: Post Results to Jira Ticket
+      # 🔧 ENHANCED: Now provides better debugging output
       # ═══════════════════════════════════════════════════════════
       - name: 📝 Post Results to Jira
         if: steps.jira.outputs.has_jira == 'true'
@@ -327,6 +347,11 @@ jobs:
           if [ -z "$JIRA_BASE_URL" ] || [ -z "$JIRA_USER_EMAIL" ] || [ -z "$JIRA_API_TOKEN" ]; then
             echo "⚠️  Jira credentials not configured - skipping Jira comment"
             echo "   Add secrets: JIRA_BASE_URL, JIRA_USER_EMAIL, JIRA_API_TOKEN"
+            echo ""
+            echo "   Current configuration:"
+            echo "   - JIRA_BASE_URL: $([ -n "$JIRA_BASE_URL" ] && echo '✅ Set' || echo '❌ Missing')"
+            echo "   - JIRA_USER_EMAIL: $([ -n "$JIRA_USER_EMAIL" ] && echo '✅ Set' || echo '❌ Missing')"
+            echo "   - JIRA_API_TOKEN: $([ -n "$JIRA_API_TOKEN" ] && echo '✅ Set' || echo '❌ Missing')"
             exit 0
           fi
           
@@ -345,6 +370,8 @@ jobs:
           EOF
           )
           
+          echo "📤 Posting to: ${JIRA_BASE_URL}/rest/api/3/issue/${JIRA_KEY}/comment"
+          
           # Post to Jira
           HTTP_CODE=$(curl -X POST \
             -H "Content-Type: application/json" \
@@ -361,5 +388,11 @@ jobs:
             echo "❌ Failed to post to Jira (HTTP ${HTTP_CODE})"
             echo "Response:"
             cat /tmp/jira_response.txt
+            echo ""
+            echo "💡 Troubleshooting tips:"
+            echo "   1. Verify Jira credentials are correct"
+            echo "   2. Check if issue ${JIRA_KEY} exists"
+            echo "   3. Ensure API token has permission to comment on issues"
+            echo "   4. Verify JIRA_BASE_URL doesn't have trailing slash"
           fi
           echo ""
