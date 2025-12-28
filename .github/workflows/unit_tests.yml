@@ -35,15 +35,13 @@ jobs:
       # STEP 2: Show What Files Will Be Tested
       # ═══════════════════════════════════════════════════════════
       - name: 🔍 Discovery - Show Source Files
+        id: discovery
         run: |
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "STEP 2: Discovering source files to test"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
-          echo "📂 All Python files in repository:"
-          find . -name "*.py" -type f | grep -v __pycache__ | sort
-          echo ""
-          echo "🎯 Files that WILL be tested (after filtering):"
+          
           SOURCE_FILES=$(find . -name "*.py" -type f | \
             grep -v test_ | \
             grep -v generate | \
@@ -57,16 +55,22 @@ jobs:
           
           if [ -z "$SOURCE_FILES" ]; then
             echo "⚠️  No source files found!"
+            echo "files_found=0" >> $GITHUB_OUTPUT
+            echo "source_files=None" >> $GITHUB_OUTPUT
           else
             echo "$SOURCE_FILES"
             SOURCE_COUNT=$(echo "$SOURCE_FILES" | wc -l | tr -d ' ')
-            echo ""
             echo "📊 Total source files: $SOURCE_COUNT"
+            echo "files_found=$SOURCE_COUNT" >> $GITHUB_OUTPUT
+            echo "source_files<<EOF" >> $GITHUB_OUTPUT
+            echo "$SOURCE_FILES" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
             
             if [ "$SOURCE_COUNT" -gt 1 ]; then
               echo "⚠️  WARNING: Multiple source files detected!"
-              echo "   AI will generate tests for ALL files listed above."
-              echo "   If you see old files you don't want tested, delete them from the repo."
+              echo "multiple_files=true" >> $GITHUB_OUTPUT
+            else
+              echo "multiple_files=false" >> $GITHUB_OUTPUT
             fi
           fi
           echo ""
@@ -106,6 +110,7 @@ jobs:
       # STEP 5: Show What Tests Were Generated
       # ═══════════════════════════════════════════════════════════
       - name: 📋 Results - Show Generated Tests
+        id: results
         run: |
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "STEP 5: Showing generated test file"
@@ -121,11 +126,22 @@ jobs:
             echo ""
             TEST_COUNT=$(grep -c "def test_" test_auto_generated.py || echo "0")
             echo "📊 Total test functions generated: $TEST_COUNT"
-            echo ""
-            echo "🎯 Test functions:"
-            grep "def test_" test_auto_generated.py || echo "None found"
+            echo "test_count=$TEST_COUNT" >> $GITHUB_OUTPUT
+            
+            # Capture test functions for comment
+            TEST_FUNCTIONS=$(grep "def test_" test_auto_generated.py | sed 's/def //' | sed 's/(.*//' || echo "None")
+            echo "test_functions<<EOF" >> $GITHUB_OUTPUT
+            echo "$TEST_FUNCTIONS" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+            
+            # Save full file content for comment
+            echo "test_content<<EOF" >> $GITHUB_OUTPUT
+            cat test_auto_generated.py >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
           else
             echo "❌ No test file was generated!"
+            echo "test_count=0" >> $GITHUB_OUTPUT
+            echo "test_functions=None" >> $GITHUB_OUTPUT
           fi
           echo ""
       
@@ -151,18 +167,99 @@ jobs:
       # STEP 7: Run All Tests
       # ═══════════════════════════════════════════════════════════
       - name: 🧪 Execution - Run Tests
+        id: pytest
         run: |
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "STEP 7: Running all tests"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
-          echo "📝 Test files to run:"
-          ls -1 test_*.py 2>/dev/null || echo "No test files found"
-          echo ""
-          echo "🚀 Starting pytest..."
-          echo ""
-          pytest -v --tb=short || true
+          pytest -v --tb=short > test_results.txt 2>&1 || true
+          cat test_results.txt
+          
+          # Save results for comment
+          echo "test_output<<EOF" >> $GITHUB_OUTPUT
+          cat test_results.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          # Check if tests passed
+          if grep -q "passed" test_results.txt; then
+            echo "status=✅ PASSED" >> $GITHUB_OUTPUT
+          else
+            echo "status=⚠️ FAILED" >> $GITHUB_OUTPUT
+          fi
           echo ""
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "✅ Unit tests workflow complete!"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      
+      # ═══════════════════════════════════════════════════════════
+      # STEP 8: Post Results to PR Comment
+      # ═══════════════════════════════════════════════════════════
+      - name: 💬 Post Results to PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const filesFound = '${{ steps.discovery.outputs.files_found }}';
+            const sourceFiles = `${{ steps.discovery.outputs.source_files }}`;
+            const multipleFiles = '${{ steps.discovery.outputs.multiple_files }}';
+            const testCount = '${{ steps.results.outputs.test_count }}';
+            const testFunctions = `${{ steps.results.outputs.test_functions }}`;
+            const testOutput = `${{ steps.pytest.outputs.test_output }}`;
+            const status = '${{ steps.pytest.outputs.status }}';
+            
+            let warningSection = '';
+            if (multipleFiles === 'true') {
+              warningSection = `
+            ## ⚠️ Warning: Multiple Source Files Detected
+            
+            The AI found multiple source files and generated tests for **all of them**:
+            \`\`\`
+            ${sourceFiles}
+            \`\`\`
+            
+            If you see old files listed above, consider removing them with:
+            \`\`\`bash
+            git rm <old_file.py>
+            \`\`\`
+            `;
+            }
+            
+            const comment = `## 🤖 AI Unit Tests Report
+            
+            ${status}
+            
+            ### 📊 Summary
+            - **Source Files Found:** ${filesFound}
+            - **Tests Generated:** ${testCount}
+            
+            ### 🎯 Source Files Tested
+            \`\`\`
+            ${sourceFiles}
+            \`\`\`
+            
+            ${warningSection}
+            
+            ### 🧪 Generated Test Functions
+            \`\`\`python
+            ${testFunctions}
+            \`\`\`
+            
+            ### 📋 Test Results
+            <details>
+            <summary>Click to see full pytest output</summary>
+            
+            \`\`\`
+            ${testOutput}
+            \`\`\`
+            </details>
+            
+            ---
+            *🤖 This comment was automatically generated by AI Unit Tests workflow*`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
