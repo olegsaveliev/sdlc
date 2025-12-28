@@ -17,7 +17,7 @@ jobs:
   call-ai-autotest:
     needs: call-quality
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    uses: ./.github/workflows/2_ai_autotest.yml
+    uses: ./.github/workflows/auto_test.yml
     secrets:
       OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
 
