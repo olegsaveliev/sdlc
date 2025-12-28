@@ -6,22 +6,37 @@ on:
   pull_request:
     branches: [ "main" ]
 
+# Required for PR comments
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
 jobs:
-  # STEP 1: AI WRITES & RUNS UNIT TESTS
+  # STEP 1: AI WRITES & RUNS UNIT TESTS (Runs on PR and Push)
   call-quality:
     uses: ./.github/workflows/unit_tests.yml
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
     secrets:
       OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
 
-  # STEP 2: AI AUTOTESTS (REGRESSION) - Only on Merge
+  # STEP 2: AI AUTOTESTS (REGRESSION) - Only after merge to main
   call-ai-autotest:
     needs: call-quality
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     uses: ./.github/workflows/auto_test.yml
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
     secrets:
       OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
 
-  # STEP 3: RELEASE
+  # STEP 3: RELEASE - Only after merge
   call-staging:
     needs: call-ai-autotest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     uses: ./.github/workflows/staging_release.yml
