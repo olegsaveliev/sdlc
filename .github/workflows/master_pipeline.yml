@@ -7,11 +7,13 @@ on:
     branches: [ "main" ]
 
 jobs:
-  # STEP 1: ALWAYS RUN UNIT TESTS
+  # STEP 1: AI WRITES & RUNS UNIT TESTS
   call-quality:
     uses: ./.github/workflows/1_quality.yml
+    secrets:
+      OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
 
-  # STEP 2: RUN AI AUTOTESTS (ONLY ON MERGE TO MAIN)
+  # STEP 2: AI AUTOTESTS (REGRESSION) - Only on Merge
   call-ai-autotest:
     needs: call-quality
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -19,7 +21,7 @@ jobs:
     secrets:
       OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
 
-  # STEP 3: RELEASE TO STAGING (ONLY IF AI TESTS PASS)
+  # STEP 3: RELEASE
   call-staging:
     needs: call-ai-autotest
     uses: ./.github/workflows/3_staging.yml
