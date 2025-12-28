@@ -34,15 +34,13 @@ jobs:
       # STEP 2: Show What Files Will Be Tested
       # ═══════════════════════════════════════════════════════════
       - name: 🔍 Discovery - Show Source Files
+        id: discovery
         run: |
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "STEP 2: Discovering source files for regression testing"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
-          echo "📂 All Python files in repository:"
-          find . -name "*.py" -type f | grep -v __pycache__ | sort
-          echo ""
-          echo "🎯 Files that WILL be tested (after filtering):"
+          
           SOURCE_FILES=$(find . -name "*.py" -type f | \
             grep -v test_ | \
             grep -v generate | \
@@ -56,16 +54,22 @@ jobs:
           
           if [ -z "$SOURCE_FILES" ]; then
             echo "⚠️  No source files found!"
+            echo "files_found=0" >> $GITHUB_OUTPUT
+            echo "source_files=None" >> $GITHUB_OUTPUT
           else
             echo "$SOURCE_FILES"
             SOURCE_COUNT=$(echo "$SOURCE_FILES" | wc -l | tr -d ' ')
-            echo ""
             echo "📊 Total source files: $SOURCE_COUNT"
+            echo "files_found=$SOURCE_COUNT" >> $GITHUB_OUTPUT
+            echo "source_files<<EOF" >> $GITHUB_OUTPUT
+            echo "$SOURCE_FILES" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
             
             if [ "$SOURCE_COUNT" -gt 1 ]; then
               echo "⚠️  WARNING: Multiple source files detected!"
-              echo "   AI will generate regression tests for ALL files listed above."
-              echo "   If you see old files you don't want tested, delete them from the repo."
+              echo "multiple_files=true" >> $GITHUB_OUTPUT
+            else
+              echo "multiple_files=false" >> $GITHUB_OUTPUT
             fi
           fi
           echo ""
@@ -95,12 +99,6 @@ jobs:
           echo "STEP 4: AI generating 5 regression test cases"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
-          echo "🎯 Goal: Generate 5 distinct test cases covering:"
-          echo "   • Success scenarios"
-          echo "   • Edge cases"
-          echo "   • Boundary conditions"
-          echo "   • Error handling"
-          echo ""
           python scripts/generate_tests.py || {
             echo "⚠️  Generator script failed but continuing..."
             exit 0
@@ -111,6 +109,7 @@ jobs:
       # STEP 5: Show What Tests Were Generated
       # ═══════════════════════════════════════════════════════════
       - name: 📋 Results - Show Generated Regression Tests
+        id: results
         run: |
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "STEP 5: Showing generated regression test file"
@@ -119,25 +118,30 @@ jobs:
           if [ -f test_ai_generated.py ]; then
             echo "✅ File created: test_ai_generated.py"
             echo ""
-            echo "📄 Contents:"
-            echo "─────────────────────────────────────────────────────"
             cat test_ai_generated.py
-            echo "─────────────────────────────────────────────────────"
             echo ""
             TEST_COUNT=$(grep -c "def test_ai_generated_" test_ai_generated.py || echo "0")
             echo "📊 Total regression tests generated: $TEST_COUNT"
-            echo ""
-            echo "🎯 Test functions:"
-            grep "def test_" test_ai_generated.py || echo "None found"
-            echo ""
+            echo "test_count=$TEST_COUNT" >> $GITHUB_OUTPUT
+            
+            # Capture test functions for comment
+            TEST_FUNCTIONS=$(grep "def test_" test_ai_generated.py | sed 's/def //' | sed 's/(.*//' || echo "None")
+            echo "test_functions<<EOF" >> $GITHUB_OUTPUT
+            echo "$TEST_FUNCTIONS" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
             
             if [ "$TEST_COUNT" -ne 5 ]; then
               echo "⚠️  Expected 5 tests, got $TEST_COUNT"
+              echo "expected_count=false" >> $GITHUB_OUTPUT
             else
               echo "✅ Correct number of tests generated (5)"
+              echo "expected_count=true" >> $GITHUB_OUTPUT
             fi
           else
             echo "❌ No test file was generated!"
+            echo "test_count=0" >> $GITHUB_OUTPUT
+            echo "test_functions=None" >> $GITHUB_OUTPUT
+            echo "expected_count=false" >> $GITHUB_OUTPUT
           fi
           echo ""
       
@@ -163,20 +167,111 @@ jobs:
       # STEP 7: Run Regression Tests
       # ═══════════════════════════════════════════════════════════
       - name: 🧪 Execution - Run Regression Tests
+        id: pytest
         run: |
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "STEP 7: Running AI-generated regression tests"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
-          echo "📝 Test file to run: test_ai_generated.py"
-          if [ -f test_ai_generated.py ]; then
-            wc -l test_ai_generated.py
+          pytest test_ai_generated.py -v --tb=short > test_results.txt 2>&1 || true
+          cat test_results.txt
+          
+          # Save results for comment
+          echo "test_output<<EOF" >> $GITHUB_OUTPUT
+          cat test_results.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          # Check if tests passed
+          if grep -q "passed" test_results.txt; then
+            echo "status=✅ PASSED" >> $GITHUB_OUTPUT
+          else
+            echo "status=⚠️ FAILED" >> $GITHUB_OUTPUT
           fi
-          echo ""
-          echo "🚀 Starting pytest..."
-          echo ""
-          pytest test_ai_generated.py -v --tb=short || true
           echo ""
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "✅ Regression tests workflow complete!"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      
+      # ═══════════════════════════════════════════════════════════
+      # STEP 8: Post Results to PR Comment
+      # ═══════════════════════════════════════════════════════════
+      - name: 💬 Post Results to PR
+        if: github.event_name == 'pull_request' || github.event.pull_request != null
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const filesFound = '${{ steps.discovery.outputs.files_found }}';
+            const sourceFiles = `${{ steps.discovery.outputs.source_files }}`;
+            const multipleFiles = '${{ steps.discovery.outputs.multiple_files }}';
+            const testCount = '${{ steps.results.outputs.test_count }}';
+            const expectedCount = '${{ steps.results.outputs.expected_count }}';
+            const testFunctions = `${{ steps.results.outputs.test_functions }}`;
+            const testOutput = `${{ steps.pytest.outputs.test_output }}`;
+            const status = '${{ steps.pytest.outputs.status }}';
+            
+            let warningSection = '';
+            if (multipleFiles === 'true') {
+              warningSection = `
+            ## ⚠️ Warning: Multiple Source Files Detected
+            
+            The AI found multiple source files and generated regression tests for **all of them**:
+            \`\`\`
+            ${sourceFiles}
+            \`\`\`
+            
+            If you see old files listed above, consider removing them with:
+            \`\`\`bash
+            git rm <old_file.py>
+            \`\`\`
+            `;
+            }
+            
+            let countWarning = '';
+            if (expectedCount === 'false') {
+              countWarning = `\n⚠️ **Expected 5 tests, but got ${testCount}**\n`;
+            }
+            
+            const comment = `## 🤖 AI Regression Tests Report
+            
+            ${status}
+            
+            ### 📊 Summary
+            - **Source Files Found:** ${filesFound}
+            - **Regression Tests Generated:** ${testCount} ${expectedCount === 'true' ? '✅' : '⚠️'}
+            ${countWarning}
+            
+            ### 🎯 Source Files Tested
+            \`\`\`
+            ${sourceFiles}
+            \`\`\`
+            
+            ${warningSection}
+            
+            ### 🧪 Generated Regression Tests
+            \`\`\`python
+            ${testFunctions}
+            \`\`\`
+            
+            ### 📋 Test Results
+            <details>
+            <summary>Click to see full pytest output</summary>
+            
+            \`\`\`
+            ${testOutput}
+            \`\`\`
+            </details>
+            
+            ---
+            *🤖 This comment was automatically generated by AI Regression Tests workflow*`;
+            
+            // Try to get the PR number from the event
+            const prNumber = context.payload.pull_request?.number || context.issue?.number;
+            
+            if (prNumber) {
+              github.rest.issues.createComment({
+                issue_number: prNumber,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+              });
+            }
