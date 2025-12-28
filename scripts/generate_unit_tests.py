@@ -1,30 +1,37 @@
 import os
+import glob
 import openai
+import re
 
 # 1. SETUP
 client = openai.OpenAI(api_key=os.environ.get("OPENAI_KEY"))
 
-# 2. READ THE DEV'S CODE
-try:
-    with open("main.py", "r") as f:
-        code_content = f.read()
-except FileNotFoundError:
-    print("❌ Could not find main.py. Exiting.")
-    exit(1)
+# 2. FIND CODE
+all_files = glob.glob("*.py")
+code_files = [f for f in all_files if not f.startswith("test_") and "generate_unit_tests" not in f]
 
-# 3. ASK AI TO WRITE UNIT TESTS
-print("🧠 AI is reading your code to write Unit Tests...")
+if not code_files:
+    print("❌ No source code found.")
+    exit(0)
+
+# 3. READ CODE
+full_code = ""
+for f in code_files:
+    with open(f, "r") as file: full_code += f"\n# FILE: {f}\n{file.read()}\n"
+
+# 4. ASK AI (With Stricter Rules)
+print("🧠 AI is writing tests...")
 prompt = f"""
-You are a Senior Python Developer.
-Your Task: Write a 'pytest' file for the following code.
-Code:
-{code_content}
+You are a Python Code Generator.
+Task: Write a executable pytest file for the code below.
 
-Rules:
-1. Cover Success scenarios.
-2. Cover Error scenarios (400/404/500).
-3. Use 'TestClient' from fastapi.testclient.
-4. Output ONLY raw python code. No markdown (```), no explanation.
+Code:
+{full_code}
+
+STRICT RULES:
+1. Return ONLY valid Python code.
+2. DO NOT write explanations, intro text, or markdown.
+3. If the code is just a print statement, write a test that checks if the file runs without error.
 """
 
 response = client.chat.completions.create(
@@ -32,13 +39,19 @@ response = client.chat.completions.create(
     messages=[{"role": "user", "content": prompt}]
 )
 
-test_code = response.choices[0].message.content
+raw_content = response.choices[0].message.content
 
-# Clean up formatting if GPT adds backticks
-test_code = test_code.replace("```python", "").replace("```", "")
+# 5. THE CLEANER (Fixes your specific error)
+# This regex looks for the first occurrence of "import" or "from" and keeps everything after it.
+match = re.search(r'(import\s+|from\s+.*)', raw_content, re.DOTALL)
+if match:
+    clean_code = match.group(0)
+else:
+    # Fallback: Just strip markdown if no imports found
+    clean_code = raw_content.replace("```python", "").replace("```", "")
 
-# 4. SAVE THE FILE (Ephemeral - exists only during pipeline run)
+# 6. SAVE
 with open("test_auto_generated.py", "w") as f:
-    f.write(test_code)
+    f.write(clean_code)
 
-print("✅ Created 'test_auto_generated.py' with fresh unit tests.")
+print("✅ Generated cleaned tests.")
