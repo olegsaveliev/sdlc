@@ -1,0 +1,13 @@
+name: Module - Release to Staging
+
+on:
+  workflow_call:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: Staging
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to Staging
+        run: echo "🚀 Releasing to Staging Server..."
