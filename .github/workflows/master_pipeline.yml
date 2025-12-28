@@ -1,4 +1,4 @@
-name: 🚀 Master Delivery Pipeline (No Duplicates)
+name: 🚀 Master Delivery Pipeline
 
 on:
   push:
@@ -12,9 +12,8 @@ permissions:
   issues: write
 
 jobs:
-  # UNIT TESTS - Only on PR (not on merge)
+  # STEP 1: Run unit tests (on PR and push)
   call-quality:
-    if: github.event_name == 'pull_request'
     uses: ./.github/workflows/unit_tests.yml
     permissions:
       contents: read
@@ -23,15 +22,25 @@ jobs:
     secrets:
       OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
 
-  # REGRESSION TESTS - Only after merge to main
+  # STEP 2: Run regression tests (on PRs to enable Jira posting)
+  # 🔧 FIX: Changed from 'push' to 'pull_request' so Jira keys can be extracted from branch names
   call-ai-autotest:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: call-quality
+    if: github.event_name == 'pull_request'
     uses: ./.github/workflows/auto_test.yml
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
     secrets:
       OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
+      # Jira integration - posts autotest results to Jira tickets
+      JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+      JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+      JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
 
-  # DEPLOY - Only after regression tests pass
+  # STEP 3: Deploy to staging (only after merge to main)
   call-staging:
-    needs: call-ai-autotest
+    needs: call-quality  # Changed dependency: no longer waits for autotest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     uses: ./.github/workflows/staging_release.yml
