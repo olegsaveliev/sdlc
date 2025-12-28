@@ -1,17 +1,33 @@
-name: Module - Unit Tests
+name: Module - AI Unit Tests
 
 on:
-  workflow_call: # This makes it "callable" by other files
+  workflow_call:
+    secrets:
+      OPENAI_KEY:
+        required: true
 
 jobs:
   unit-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      
       - uses: actions/setup-python@v4
         with: { python-version: '3.10' }
-      - name: Install & Test
+      
+      - name: Install Dependencies
         run: |
           pip install -r requirements.txt
-          pip install pytest httpx
-          pytest test_main.py # Runs the manual tests only
+          pip install pytest httpx openai # Added openai here
+      
+      # NEW STEP: AI WRITES THE TESTS
+      - name: 🧠 AI Generate Unit Tests
+        env:
+          OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
+        run: python scripts/generate_unit_tests.py
+      
+      # OLD STEP: RUN ALL TESTS (Includes the new AI one)
+      - name: 🧪 Run Tests
+        run: |
+          echo "Running tests..."
+          pytest -v
