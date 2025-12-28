@@ -55,15 +55,13 @@ jobs:
           if [ -z "$SOURCE_FILES" ]; then
             echo "⚠️  No source files found!"
             echo "files_found=0" >> $GITHUB_OUTPUT
-            echo "source_files=None" >> $GITHUB_OUTPUT
+            echo "None" > /tmp/source_files_regression.txt
           else
             echo "$SOURCE_FILES"
             SOURCE_COUNT=$(echo "$SOURCE_FILES" | wc -l | tr -d ' ')
             echo "📊 Total source files: $SOURCE_COUNT"
             echo "files_found=$SOURCE_COUNT" >> $GITHUB_OUTPUT
-            echo "source_files<<EOF" >> $GITHUB_OUTPUT
-            echo "$SOURCE_FILES" >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
+            echo "$SOURCE_FILES" > /tmp/source_files_regression.txt
             
             if [ "$SOURCE_COUNT" -gt 1 ]; then
               echo "⚠️  WARNING: Multiple source files detected!"
@@ -124,11 +122,8 @@ jobs:
             echo "📊 Total regression tests generated: $TEST_COUNT"
             echo "test_count=$TEST_COUNT" >> $GITHUB_OUTPUT
             
-            # Capture test functions for comment
-            TEST_FUNCTIONS=$(grep "def test_" test_ai_generated.py | sed 's/def //' | sed 's/(.*//' || echo "None")
-            echo "test_functions<<EOF" >> $GITHUB_OUTPUT
-            echo "$TEST_FUNCTIONS" >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
+            # Save test functions to temp file
+            grep "def test_" test_ai_generated.py | sed 's/def //' | sed 's/(.*//' > /tmp/test_functions_regression.txt || echo "None" > /tmp/test_functions_regression.txt
             
             if [ "$TEST_COUNT" -ne 5 ]; then
               echo "⚠️  Expected 5 tests, got $TEST_COUNT"
@@ -140,7 +135,7 @@ jobs:
           else
             echo "❌ No test file was generated!"
             echo "test_count=0" >> $GITHUB_OUTPUT
-            echo "test_functions=None" >> $GITHUB_OUTPUT
+            echo "None" > /tmp/test_functions_regression.txt
             echo "expected_count=false" >> $GITHUB_OUTPUT
           fi
           echo ""
@@ -173,16 +168,11 @@ jobs:
           echo "STEP 7: Running AI-generated regression tests"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
-          pytest test_ai_generated.py -v --tb=short > test_results.txt 2>&1 || true
-          cat test_results.txt
-          
-          # Save results for comment
-          echo "test_output<<EOF" >> $GITHUB_OUTPUT
-          cat test_results.txt >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          pytest test_ai_generated.py -v --tb=short > /tmp/test_results_regression.txt 2>&1 || true
+          cat /tmp/test_results_regression.txt
           
           # Check if tests passed
-          if grep -q "passed" test_results.txt; then
+          if grep -q "passed" /tmp/test_results_regression.txt; then
             echo "status=✅ PASSED" >> $GITHUB_OUTPUT
           else
             echo "status=⚠️ FAILED" >> $GITHUB_OUTPUT
@@ -200,14 +190,37 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
+            const fs = require('fs');
+            
+            // Read from output variables
             const filesFound = '${{ steps.discovery.outputs.files_found }}';
-            const sourceFiles = `${{ steps.discovery.outputs.source_files }}`;
             const multipleFiles = '${{ steps.discovery.outputs.multiple_files }}';
             const testCount = '${{ steps.results.outputs.test_count }}';
             const expectedCount = '${{ steps.results.outputs.expected_count }}';
-            const testFunctions = `${{ steps.results.outputs.test_functions }}`;
-            const testOutput = `${{ steps.pytest.outputs.test_output }}`;
             const status = '${{ steps.pytest.outputs.status }}';
+            
+            // Read from temp files
+            let sourceFiles = 'None';
+            let testFunctions = 'None';
+            let testOutput = 'No output';
+            
+            try {
+              sourceFiles = fs.readFileSync('/tmp/source_files_regression.txt', 'utf8').trim();
+            } catch (e) {
+              sourceFiles = 'None';
+            }
+            
+            try {
+              testFunctions = fs.readFileSync('/tmp/test_functions_regression.txt', 'utf8').trim();
+            } catch (e) {
+              testFunctions = 'None';
+            }
+            
+            try {
+              testOutput = fs.readFileSync('/tmp/test_results_regression.txt', 'utf8').trim();
+            } catch (e) {
+              testOutput = 'No output';
+            }
             
             let warningSection = '';
             if (multipleFiles === 'true') {
