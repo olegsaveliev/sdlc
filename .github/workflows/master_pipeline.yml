@@ -9,7 +9,7 @@ on:
 jobs:
   # STEP 1: AI WRITES & RUNS UNIT TESTS
   call-quality:
-    uses: ./.github/workflows/1_quality.yml
+    uses: ./.github/workflows/unit_tests.yml
     secrets:
       OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
 
