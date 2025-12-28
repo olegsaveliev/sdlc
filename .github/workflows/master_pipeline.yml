@@ -1,0 +1,25 @@
+name: 🚀 Master Delivery Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  # STEP 1: ALWAYS RUN UNIT TESTS
+  call-quality:
+    uses: ./.github/workflows/1_quality.yml
+
+  # STEP 2: RUN AI AUTOTESTS (ONLY ON MERGE TO MAIN)
+  call-ai-autotest:
+    needs: call-quality
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/2_ai_autotest.yml
+    secrets:
+      OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
+
+  # STEP 3: RELEASE TO STAGING (ONLY IF AI TESTS PASS)
+  call-staging:
+    needs: call-ai-autotest
+    uses: ./.github/workflows/3_staging.yml
