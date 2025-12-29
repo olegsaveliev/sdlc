@@ -9,6 +9,7 @@ import sys
 import git
 import requests
 from openai import OpenAI
+from auto_tracker import track_openai  # ← ADDED: Auto-tracking import
 
 # ═══════════════════════════════════════════════════════════
 # Configuration
@@ -103,6 +104,7 @@ def review_code_with_ai(files_content):
     
     try:
         client = OpenAI(api_key=OPENAI_KEY)
+        client = track_openai(client)  # ← ADDED: Enable auto-tracking
         
         # Build code content string
         code_sections = []
