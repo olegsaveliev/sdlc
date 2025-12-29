@@ -5,6 +5,10 @@ on:
     secrets:
       OPENAI_KEY:
         required: true
+      TRACKER_ENDPOINT:
+        required: false
+      TRACKER_API_KEY:
+        required: false
 
 jobs:
   ai-review:
@@ -23,11 +27,19 @@ jobs:
       - name: 📦 Install Dependencies
         run: pip install openai requests gitpython
       
+      - name: 🔍 Debug Environment
+        env:
+          TRACKER_ENDPOINT: ${{ secrets.TRACKER_ENDPOINT }}
+          TRACKER_API_KEY: ${{ secrets.TRACKER_API_KEY }}
+        run: |
+          echo "Tracker endpoint set: $([[ -n "$TRACKER_ENDPOINT" ]] && echo 'YES' || echo 'NO')"
+          echo "Tracker API key set: $([[ -n "$TRACKER_API_KEY" ]] && echo 'YES' || echo 'NO')"
+      
       - name: 🤖 Run AI PR Review
         env:
           OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
-          TRACKER_ENDPOINT: ${{ secrets.TRACKER_ENDPOINT }}    # ← ADD THIS
-          TRACKER_API_KEY: ${{ secrets.TRACKER_API_KEY }}      # ←
+          TRACKER_ENDPOINT: ${{ secrets.TRACKER_ENDPOINT }}
+          TRACKER_API_KEY: ${{ secrets.TRACKER_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO_OWNER: ${{ github.repository_owner }}
@@ -36,4 +48,3 @@ jobs:
           HEAD_REF: ${{ github.head_ref }}
           GITHUB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: python scripts/pr_review_agent.py
-
