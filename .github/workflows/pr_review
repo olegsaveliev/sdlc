@@ -1,0 +1,252 @@
+name: Module - AI PR Review
+
+on:
+  workflow_call:
+    secrets:
+      OPENAI_KEY:
+        required: true
+
+jobs:
+  ai-review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Get full history for diff
+      
+      - uses: actions/setup-python@v4
+        with: { python-version: '3.10' }
+      
+      # ═══════════════════════════════════════════════════════════
+      # STEP 1: Install Dependencies
+      # ═══════════════════════════════════════════════════════════
+      - name: 📦 Install Dependencies
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "STEP 1: Installing dependencies for AI PR Review"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          pip install openai requests
+          echo "✅ Dependencies installed"
+          echo ""
+      
+      # ═══════════════════════════════════════════════════════════
+      # STEP 2: Get PR Changes
+      # ═══════════════════════════════════════════════════════════
+      - name: 📝 Get PR Diff
+        id: diff
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "STEP 2: Fetching PR changes"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          
+          # Get the base branch
+          git fetch origin ${{ github.base_ref }}
+          
+          # Get diff between base and current branch
+          DIFF=$(git diff origin/${{ github.base_ref }}...HEAD)
+          
+          if [ -z "$DIFF" ]; then
+            echo "⚠️  No changes detected"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "✅ Changes detected"
+            echo "$DIFF" > /tmp/pr_diff.txt
+            
+            # Get stats
+            FILES_CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | wc -l)
+            LINES_ADDED=$(echo "$DIFF" | grep "^+" | grep -v "^+++" | wc -l)
+            LINES_REMOVED=$(echo "$DIFF" | grep "^-" | grep -v "^---" | wc -l)
+            
+            echo "📊 Changes:"
+            echo "   Files: $FILES_CHANGED"
+            echo "   Lines added: $LINES_ADDED"
+            echo "   Lines removed: $LINES_REMOVED"
+            
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "files_changed=$FILES_CHANGED" >> $GITHUB_OUTPUT
+            echo "lines_added=$LINES_ADDED" >> $GITHUB_OUTPUT
+            echo "lines_removed=$LINES_REMOVED" >> $GITHUB_OUTPUT
+          fi
+          echo ""
+      
+      # ═══════════════════════════════════════════════════════════
+      # STEP 3: AI Code Review
+      # ═══════════════════════════════════════════════════════════
+      - name: 🤖 AI Code Review
+        if: steps.diff.outputs.has_changes == 'true'
+        id: review
+        env:
+          OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "STEP 3: AI analyzing code changes"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          
+          python3 << 'PYTHON_SCRIPT'
+          import os
+          import json
+          from openai import OpenAI
+          
+          # Read the diff
+          with open('/tmp/pr_diff.txt', 'r') as f:
+              diff_content = f.read()
+          
+          # Truncate if too large (max ~8000 chars for context)
+          if len(diff_content) > 8000:
+              diff_content = diff_content[:8000] + "\n\n... (diff truncated for review)"
+          
+          # Initialize OpenAI client
+          client = OpenAI(api_key=os.environ['OPENAI_KEY'])
+          
+          # Create prompt for code review
+          prompt = f"""You are an expert code reviewer. Review this pull request diff and provide constructive feedback.
+
+Focus on:
+1. 🐛 **Bugs & Issues**: Logic errors, potential bugs, edge cases
+2. 🔒 **Security**: Security vulnerabilities, input validation
+3. ⚡ **Performance**: Inefficiencies, optimization opportunities
+4. 📖 **Code Quality**: Readability, maintainability, best practices
+5. 🧪 **Testing**: Missing tests, test coverage gaps
+6. 📚 **Documentation**: Missing comments, unclear code
+
+Format your response as:
+- Start with an overall assessment (looks good / needs attention / critical issues)
+- List specific suggestions with file names and line numbers when possible
+- Be constructive and helpful, not just critical
+- Prioritize issues by severity (🔴 Critical, 🟡 Important, 🟢 Suggestion)
+- End with positive feedback on what was done well
+
+PR Diff:
+```
+{diff_content}
+```
+
+Provide your review:"""
+          
+          try:
+              response = client.chat.completions.create(
+                  model='gpt-4',
+                  messages=[{'role': 'user', 'content': prompt}],
+                  temperature=0.3,
+                  max_tokens=1500
+              )
+              
+              review_text = response.choices[0].message.content
+              
+              # Save review to file
+              with open('/tmp/ai_review.txt', 'w') as f:
+                  f.write(review_text)
+              
+              print("✅ AI review completed")
+              print("\n" + "="*60)
+              print(review_text)
+              print("="*60)
+              
+          except Exception as e:
+              print(f"❌ Error during AI review: {e}")
+              with open('/tmp/ai_review.txt', 'w') as f:
+                  f.write(f"⚠️ AI review failed: {e}\n\nPlease review manually.")
+          
+          PYTHON_SCRIPT
+          
+          echo ""
+          echo "✅ AI code review complete"
+          echo ""
+      
+      # ═══════════════════════════════════════════════════════════
+      # STEP 4: Post Review Comment to PR
+      # ═══════════════════════════════════════════════════════════
+      - name: 💬 Post AI Review to PR
+        if: steps.diff.outputs.has_changes == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            
+            // Read AI review
+            let aiReview = 'No review generated';
+            try {
+              aiReview = fs.readFileSync('/tmp/ai_review.txt', 'utf8');
+            } catch (e) {
+              console.error('Could not read review file:', e);
+            }
+            
+            // Get PR stats
+            const filesChanged = '${{ steps.diff.outputs.files_changed }}';
+            const linesAdded = '${{ steps.diff.outputs.lines_added }}';
+            const linesRemoved = '${{ steps.diff.outputs.lines_removed }}';
+            
+            // Create comment
+            const comment = `## 🤖 AI Code Review
+            
+            ### 📊 PR Statistics
+            - **Files Changed:** ${filesChanged}
+            - **Lines Added:** +${linesAdded}
+            - **Lines Removed:** -${linesRemoved}
+            
+            ---
+            
+            ### 🔍 AI Analysis
+            
+            ${aiReview}
+            
+            ---
+            
+            ### 💡 About This Review
+            This automated review was generated by GPT-4 to help catch potential issues early. Please use human judgment for final decisions.
+            
+            **Helpful?** 👍 or 👎 to provide feedback
+            
+            ---
+            *🤖 Automated PR Review by AI Agent | [View workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})*`;
+            
+            // Check if we already posted a review
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const botComment = comments.find(comment => 
+              comment.user.type === 'Bot' && 
+              comment.body.includes('🤖 AI Code Review')
+            );
+            
+            if (botComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: comment
+              });
+              console.log('✅ Updated existing AI review comment');
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: comment
+              });
+              console.log('✅ Posted new AI review comment');
+            }
+      
+      # ═══════════════════════════════════════════════════════════
+      # STEP 5: Summary
+      # ═══════════════════════════════════════════════════════════
+      - name: ✅ Review Complete
+        if: steps.diff.outputs.has_changes == 'true'
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ AI PR Review workflow complete!"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "📝 Review has been posted to the PR"
+          echo "🔍 Check the PR comments for AI suggestions"
+          echo ""
