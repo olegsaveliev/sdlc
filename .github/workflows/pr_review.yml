@@ -35,10 +35,3 @@ jobs:
           GITHUB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: python scripts/pr_review_agent.py
 
-        # ← ADD THIS:
-    - name: 📊 Upload Cost Metrics
-  if: always()
-  uses: actions/upload-artifact@v3
-  with:
-    name: cost-metrics
-    path: scripts/metrics.json
