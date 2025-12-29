@@ -12,8 +12,11 @@ permissions:
   issues: write
 
 jobs:
-  # STEP 1: Run unit tests (on PR and push)
+  # ═══════════════════════════════════════════════════════════
+  # STEP 1: Run Unit Tests (ONLY on Pull Requests)
+  # ═══════════════════════════════════════════════════════════
   call-quality:
+    if: github.event_name == 'pull_request'
     uses: ./.github/workflows/unit_tests.yml
     permissions:
       contents: read
@@ -22,8 +25,9 @@ jobs:
     secrets:
       OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
 
-  # STEP 2: Run regression tests (on PRs to enable Jira posting)
-  # 🔧 FIX: Changed from 'push' to 'pull_request' so Jira keys can be extracted from branch names
+  # ═══════════════════════════════════════════════════════════
+  # STEP 2: Run Regression Tests (ONLY on Pull Requests)
+  # ═══════════════════════════════════════════════════════════
   call-ai-autotest:
     needs: call-quality
     if: github.event_name == 'pull_request'
@@ -39,8 +43,9 @@ jobs:
       JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
       JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
 
-  # STEP 3: Deploy to staging (only after merge to main)
+  # ═══════════════════════════════════════════════════════════
+  # STEP 3: Deploy to Staging (ONLY after merge to main)
+  # ═══════════════════════════════════════════════════════════
   call-staging:
-    needs: call-quality  # Changed dependency: no longer waits for autotest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     uses: ./.github/workflows/staging_release.yml
