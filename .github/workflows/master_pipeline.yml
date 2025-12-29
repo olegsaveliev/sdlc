@@ -13,7 +13,19 @@ permissions:
 
 jobs:
   # ═══════════════════════════════════════════════════════════
-  # STEP 1: Run Unit Tests (ONLY on Pull Requests)
+  # STEP 1: AI Code Review (runs first for quick feedback)
+  # ═══════════════════════════════════════════════════════════
+  call-pr-review:
+    if: github.event_name == 'pull_request'
+    uses: ./.github/workflows/pr_review.yml
+    permissions:
+      contents: read
+      pull-requests: write
+    secrets:
+      OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
+
+  # ═══════════════════════════════════════════════════════════
+  # STEP 2: Run Unit Tests (ONLY on Pull Requests)
   # ═══════════════════════════════════════════════════════════
   call-quality:
     if: github.event_name == 'pull_request'
@@ -26,7 +38,7 @@ jobs:
       OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
 
   # ═══════════════════════════════════════════════════════════
-  # STEP 2: Run Regression Tests (ONLY on Pull Requests)
+  # STEP 3: Run Regression Tests (ONLY on Pull Requests)
   # ═══════════════════════════════════════════════════════════
   call-ai-autotest:
     needs: call-quality
@@ -44,7 +56,7 @@ jobs:
       JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
 
   # ═══════════════════════════════════════════════════════════
-  # STEP 3: Deploy to Staging (ONLY after merge to main)
+  # STEP 4: Deploy to Staging (ONLY after merge to main)
   # ═══════════════════════════════════════════════════════════
   call-staging:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
