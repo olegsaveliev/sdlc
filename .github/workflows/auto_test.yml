@@ -11,6 +11,10 @@ on:
         required: false
       JIRA_API_TOKEN:
         required: false
+      TRACKER_ENDPOINT:           # ← ADD THIS
+        required: false
+      TRACKER_API_KEY:            # ← ADD THIS
+        required: false
 
 jobs:
   generate-and-run:
