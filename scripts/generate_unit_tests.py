@@ -2,9 +2,11 @@ import os
 import glob
 import openai
 import re
+from auto_tracker import track_openai  # ← ADDED: Auto-tracking import
 
 # 1. SETUP
 client = openai.OpenAI(api_key=os.environ.get("OPENAI_KEY"))
+client = track_openai(client)  # ← ADDED: Enable auto-tracking
 
 # 2. FIND CODE - DYNAMIC SEARCH (no hardcoded paths)
 print("🔍 Searching for Python source files...")
