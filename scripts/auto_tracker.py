@@ -29,6 +29,15 @@ PRICING = {
     'gpt-4o': {'input': 2.5, 'output': 10.0},
     'gpt-4o-mini': {'input': 0.15, 'output': 0.6},
     'gpt-3.5-turbo': {'input': 0.5, 'output': 1.5},
+
+    # Claude Models (Anthropic) - ADD THESE:
+    'claude-opus-4': {'input': 15.0, 'output': 75.0},
+    'claude-sonnet-4': {'input': 3.0, 'output': 15.0},
+    'claude-sonnet-3-5': {'input': 3.0, 'output': 15.0},
+    'claude-haiku-3-5': {'input': 0.8, 'output': 4.0},
+    'claude-3-opus': {'input': 15.0, 'output': 75.0},
+    'claude-3-sonnet': {'input': 3.0, 'output': 15.0},
+    'claude-3-haiku': {'input': 0.25, 'output': 1.25},
 }
 
 # ═══════════════════════════════════════════════════════════
