@@ -1,0 +1,28 @@
+[
+  {
+    "timestamp": "2025-12-29T13:29:09.328476",
+    "agent": "Test Agent",
+    "model": "gpt-4",
+    "input_tokens": 1000,
+    "output_tokens": 500,
+    "total_tokens": 1500,
+    "cost": 0.06,
+    "execution_time": 2.5,
+    "status": "Success",
+    "run_id": "local",
+    "pr_number": ""
+  },
+  {
+    "timestamp": "2025-12-29T13:31:25.975436",
+    "agent": "Test Agent",
+    "model": "gpt-4",
+    "input_tokens": 1000,
+    "output_tokens": 500,
+    "total_tokens": 1500,
+    "cost": 0.06,
+    "execution_time": 2.5,
+    "status": "Success",
+    "run_id": "local",
+    "pr_number": ""
+  }
+]
