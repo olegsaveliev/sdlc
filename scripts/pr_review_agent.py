@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 AI PR Review Agent
-Analyzes pull request changes and provides automated code review feedback.
+Reviews the actual code files in a pull request and provides feedback.
 """
 
 import os
@@ -20,11 +20,11 @@ PR_NUMBER = os.environ.get('PR_NUMBER')
 REPO_OWNER = os.environ.get('REPO_OWNER')
 REPO_NAME = os.environ.get('REPO_NAME')
 BASE_REF = os.environ.get('BASE_REF')
-HEAD_REF = os.environ.get('HEAD_REF')
 GITHUB_RUN_URL = os.environ.get('GITHUB_RUN_URL')
 
 # Review settings
-MAX_DIFF_LENGTH = 8000  # Max characters to send to AI
+MAX_FILE_SIZE = 5000  # Max characters per file to review
+MAX_FILES = 10        # Max number of files to review
 AI_MODEL = 'gpt-4'
 AI_TEMPERATURE = 0.3
 AI_MAX_TOKENS = 1500
@@ -40,91 +40,108 @@ def print_step(step_num, title):
     print("━" * 60)
 
 
-def get_pr_diff():
-    """Get the diff between base and head branches."""
-    print_step(1, "Getting PR Changes")
+def get_changed_files():
+    """Get list of files that changed in this PR."""
+    print_step(1, "Finding Changed Files")
     
     try:
         repo = git.Repo('.')
         
-        # Fetch the base branch
-        print(f"📡 Fetching base branch: {BASE_REF}")
+        # Get files changed compared to base branch
         repo.remotes.origin.fetch(BASE_REF)
-        
-        # Get diff
         base_commit = repo.commit(f'origin/{BASE_REF}')
         head_commit = repo.commit('HEAD')
         
-        diff = repo.git.diff(base_commit, head_commit)
+        # Get list of changed files
+        changed_files = []
+        diffs = base_commit.diff(head_commit)
         
-        if not diff:
-            print("⚠️  No changes detected")
-            return None, {}
+        for diff in diffs:
+            # Get the file path (use b_path for new/modified files)
+            file_path = diff.b_path if diff.b_path else diff.a_path
+            
+            # Only include files that exist and are code files
+            if file_path and os.path.exists(file_path):
+                # Skip non-code files
+                if file_path.endswith(('.py', '.js', '.jsx', '.ts', '.tsx', '.java', '.go', '.rb', '.php', '.c', '.cpp', '.h', '.cs')):
+                    changed_files.append(file_path)
         
-        # Get stats
-        files_changed = len(repo.git.diff(base_commit, head_commit, name_only=True).split('\n'))
-        lines_added = diff.count('\n+') - diff.count('\n+++')
-        lines_removed = diff.count('\n-') - diff.count('\n---')
+        if not changed_files:
+            print("⚠️  No code files changed")
+            return []
         
-        stats = {
-            'files_changed': files_changed,
-            'lines_added': lines_added,
-            'lines_removed': lines_removed
-        }
+        print(f"✅ Found {len(changed_files)} changed code files:")
+        for f in changed_files:
+            print(f"   📄 {f}")
         
-        print(f"✅ Changes detected:")
-        print(f"   Files: {files_changed}")
-        print(f"   Lines added: {lines_added}")
-        print(f"   Lines removed: {lines_removed}")
-        
-        return diff, stats
+        return changed_files[:MAX_FILES]  # Limit number of files
         
     except Exception as e:
-        print(f"❌ Error getting diff: {e}")
-        return None, {}
+        print(f"❌ Error getting changed files: {e}")
+        return []
 
 
-def review_with_ai(diff_content):
-    """Send diff to OpenAI for code review."""
+def read_file_content(file_path):
+    """Read and return file content."""
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # Truncate if too large
+        if len(content) > MAX_FILE_SIZE:
+            content = content[:MAX_FILE_SIZE] + f"\n\n... (truncated - file is {len(content)} chars)"
+        
+        return content
+    except Exception as e:
+        print(f"⚠️  Could not read {file_path}: {e}")
+        return None
+
+
+def review_code_with_ai(files_content):
+    """Send code to OpenAI for review."""
     print_step(2, "AI Code Review")
-    
-    # Truncate if too large
-    if len(diff_content) > MAX_DIFF_LENGTH:
-        print(f"⚠️  Diff too large ({len(diff_content)} chars), truncating to {MAX_DIFF_LENGTH}")
-        diff_content = diff_content[:MAX_DIFF_LENGTH] + "\n\n... (diff truncated for review)"
     
     try:
         client = OpenAI(api_key=OPENAI_KEY)
         
-        prompt = f"""You are an expert code reviewer. Review this pull request diff and provide constructive feedback.
+        # Build code content string
+        code_sections = []
+        for file_path, content in files_content.items():
+            code_sections.append(f"### File: {file_path}\n```\n{content}\n```")
+        
+        all_code = "\n\n".join(code_sections)
+        
+        prompt = f"""You are an expert code reviewer. Review these code files and provide constructive feedback.
 
 Focus on:
-1. 🐛 **Bugs & Issues**: Logic errors, potential bugs, edge cases, null checks
-2. 🔒 **Security**: SQL injection, XSS, auth issues, exposed secrets, input validation
-3. ⚡ **Performance**: Inefficient loops, N+1 queries, memory leaks, unnecessary operations
-4. 📖 **Code Quality**: Readability, naming conventions, complexity, maintainability
-5. 🧪 **Testing**: Missing tests, test coverage gaps, untested edge cases
-6. 📚 **Documentation**: Missing comments, unclear logic, outdated docs
+1. 🐛 **Bugs & Logic Errors**: Null checks, edge cases, potential crashes
+2. 🔒 **Security Issues**: SQL injection, XSS, authentication, exposed secrets
+3. ⚡ **Performance**: Inefficient code, memory leaks, slow operations
+4. 📖 **Code Quality**: Readability, naming, complexity, best practices
+5. 🧪 **Testing Needs**: What should be tested, missing test cases
+6. 📚 **Documentation**: Unclear code, missing comments
 
 Format your response:
 - Start with overall assessment (✅ Looks good / ⚠️ Needs attention / 🔴 Critical issues)
-- Group issues by severity:
-  - 🔴 **Critical**: Security vulnerabilities, major bugs (must fix)
-  - 🟡 **Important**: Performance issues, code quality (should fix)
-  - 🟢 **Suggestions**: Minor improvements, style (nice to have)
-- Include file names and approximate line numbers when possible
-- Be constructive and specific with actionable suggestions
-- End with positive feedback on what was done well
-- Keep the tone helpful and encouraging
+- Group findings by severity:
+  - 🔴 **Critical**: Must fix immediately (security, major bugs)
+  - 🟡 **Important**: Should fix (performance, quality issues)
+  - 🟢 **Suggestions**: Nice to have (style, minor improvements)
+- For each issue:
+  - Mention the file name
+  - Point out the specific problem
+  - Explain WHY it's an issue
+  - Suggest HOW to fix it with code example if helpful
+- End with positive feedback on what's done well
+- Be helpful and constructive, not just critical
 
-PR Diff:
-```
-{diff_content}
-```
+Code to review:
+
+{all_code}
 
 Provide your code review:"""
         
-        print("🤖 Sending to AI for analysis...")
+        print(f"🤖 Analyzing {len(files_content)} files with AI...")
         
         response = client.chat.completions.create(
             model=AI_MODEL,
@@ -147,8 +164,8 @@ Provide your code review:"""
         return f"⚠️ AI review failed: {e}\n\nPlease review manually."
 
 
-def post_to_github(review_text, stats):
-    """Post or update review comment on GitHub PR."""
+def post_to_github(review_text, files_reviewed):
+    """Post review comment on GitHub PR."""
     print_step(3, "Posting Review to GitHub")
     
     if not PR_NUMBER:
@@ -156,13 +173,16 @@ def post_to_github(review_text, stats):
         return
     
     try:
+        # Create file list
+        files_list = "\n".join([f"- `{f}`" for f in files_reviewed])
+        
         # Create comment body
         comment_body = f"""## 🤖 AI Code Review
 
-### 📊 PR Statistics
-- **Files Changed:** {stats.get('files_changed', 'N/A')}
-- **Lines Added:** +{stats.get('lines_added', 'N/A')}
-- **Lines Removed:** -{stats.get('lines_removed', 'N/A')}
+### 📊 Files Reviewed
+{files_list}
+
+**Total files:** {len(files_reviewed)}
 
 ---
 
@@ -173,12 +193,12 @@ def post_to_github(review_text, stats):
 ---
 
 ### 💡 About This Review
-This automated review was generated by {AI_MODEL} to help catch potential issues early. Please use human judgment for final decisions.
+This review analyzed the actual code in your changed files (not just the diff). The AI checked for bugs, security issues, performance problems, and code quality.
 
-**Helpful?** 👍 or 👎 to provide feedback
+**Helpful?** React with 👍 or 👎
 
 ---
-*🤖 Automated PR Review | [View workflow run]({GITHUB_RUN_URL})*"""
+*🤖 Automated by AI PR Review Agent | [View workflow]({GITHUB_RUN_URL})*"""
         
         # GitHub API setup
         api_url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}"
@@ -187,8 +207,8 @@ This automated review was generated by {AI_MODEL} to help catch potential issues
             'Accept': 'application/vnd.github.v3+json'
         }
         
-        # Check if we already posted a review
-        print("🔍 Checking for existing review comment...")
+        # Check for existing review comment
+        print("🔍 Checking for existing review...")
         comments_url = f"{api_url}/issues/{PR_NUMBER}/comments"
         response = requests.get(comments_url, headers=headers)
         response.raise_for_status()
@@ -201,7 +221,7 @@ This automated review was generated by {AI_MODEL} to help catch potential issues
         
         if existing_comment:
             # Update existing comment
-            print(f"📝 Updating existing comment (ID: {existing_comment['id']})")
+            print(f"📝 Updating existing review comment")
             update_url = f"{api_url}/issues/comments/{existing_comment['id']}"
             response = requests.patch(
                 update_url,
@@ -209,30 +229,28 @@ This automated review was generated by {AI_MODEL} to help catch potential issues
                 json={'body': comment_body}
             )
             response.raise_for_status()
-            print("✅ Updated existing AI review comment")
+            print("✅ Updated review comment")
         else:
             # Create new comment
-            print("📝 Creating new comment")
+            print("📝 Creating new review comment")
             response = requests.post(
                 comments_url,
                 headers=headers,
                 json={'body': comment_body}
             )
             response.raise_for_status()
-            print("✅ Posted new AI review comment")
+            print("✅ Posted review comment")
         
-        print(f"🔗 View at: https://github.com/{REPO_OWNER}/{REPO_NAME}/pull/{PR_NUMBER}")
+        print(f"🔗 View: https://github.com/{REPO_OWNER}/{REPO_NAME}/pull/{PR_NUMBER}")
         
     except Exception as e:
         print(f"❌ Error posting to GitHub: {e}")
-        if hasattr(e, 'response'):
-            print(f"Response: {e.response.text}")
 
 
 def main():
     """Main execution flow."""
     print("\n" + "=" * 60)
-    print("🤖 AI PR Review Agent")
+    print("🤖 AI PR Review Agent - Simple Code Review")
     print("=" * 60)
     
     # Validate environment
@@ -247,28 +265,43 @@ def main():
     print(f"\n📋 Configuration:")
     print(f"   PR: #{PR_NUMBER}")
     print(f"   Repo: {REPO_OWNER}/{REPO_NAME}")
-    print(f"   Base: {BASE_REF} → Head: {HEAD_REF}")
     print(f"   Model: {AI_MODEL}")
     
-    # Step 1: Get PR diff
-    diff, stats = get_pr_diff()
+    # Step 1: Get changed files
+    changed_files = get_changed_files()
     
-    if not diff:
-        print("\n⚠️  No changes to review")
+    if not changed_files:
+        print("\n⚠️  No code files to review")
         sys.exit(0)
     
-    # Step 2: Review with AI
-    review = review_with_ai(diff)
+    # Step 2: Read file contents
+    print_step(2, "Reading File Contents")
+    files_content = {}
+    
+    for file_path in changed_files:
+        print(f"📖 Reading {file_path}...")
+        content = read_file_content(file_path)
+        if content:
+            files_content[file_path] = content
+    
+    if not files_content:
+        print("\n⚠️  Could not read any files")
+        sys.exit(0)
+    
+    print(f"✅ Successfully read {len(files_content)} files")
+    
+    # Step 3: Review with AI
+    review = review_code_with_ai(files_content)
     
     if not review:
         print("\n❌ Failed to generate review")
         sys.exit(1)
     
-    # Step 3: Post to GitHub
-    post_to_github(review, stats)
+    # Step 4: Post to GitHub
+    post_to_github(review, list(files_content.keys()))
     
     print("\n" + "=" * 60)
-    print("✅ AI PR Review Complete!")
+    print("✅ Code Review Complete!")
     print("=" * 60)
     print()
 
