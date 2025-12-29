@@ -6,7 +6,7 @@ Auto-updates from metrics.json - zero configuration needed!
 Usage:
     python dashboard.py
     
-Then open: http://localhost:5001
+Then open: http://localhost:8080
 """
 
 from flask import Flask, render_template_string, jsonify
@@ -609,7 +609,7 @@ def main():
     print()
     
     try:
-        app.run(host='0.0.0.0', port=5001, debug=False)
+        app.run(host='0.0.0.0', port=8080, debug=False)
     except KeyboardInterrupt:
         print("\n\n✅ Dashboard stopped")
 
