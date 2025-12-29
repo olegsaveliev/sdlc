@@ -137,6 +137,8 @@ jobs:
       - name: 🤖 AI Generation - Generate 5 Regression Tests
         env:
           OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
+          TRACKER_ENDPOINT: ${{ secrets.TRACKER_ENDPOINT }}    # ← ADD
+          TRACKER_API_KEY: ${{ secrets.TRACKER_API_KEY }}      # ← ADD        
         run: |
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "STEP 5: AI generating 5 regression test cases"

@@ -26,6 +26,8 @@ jobs:
       - name: 🤖 Run AI PR Review
         env:
           OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
+          TRACKER_ENDPOINT: ${{ secrets.TRACKER_ENDPOINT }}    # ← ADD THIS
+          TRACKER_API_KEY: ${{ secrets.TRACKER_API_KEY }}      # ←
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO_OWNER: ${{ github.repository_owner }}

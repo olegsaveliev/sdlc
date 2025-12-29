@@ -94,6 +94,8 @@ jobs:
       - name: 🧠 AI Generation - Generate Unit Tests
         env:
           OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
+          TRACKER_ENDPOINT: ${{ secrets.TRACKER_ENDPOINT }}    # ← ADD
+          TRACKER_API_KEY: ${{ secrets.TRACKER_API_KEY }}      # ← ADD
         run: |
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "STEP 4: AI generating unit tests"
