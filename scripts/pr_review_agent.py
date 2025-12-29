@@ -9,7 +9,7 @@ import sys
 import git
 import requests
 from openai import OpenAI
-#from auto_tracker import track_openai  # ← ADDED: Auto-tracking import
+from auto_tracker import track_openai  # ← ADDED: Auto-tracking import
 
 # ═══════════════════════════════════════════════════════════
 # Configuration
