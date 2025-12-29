@@ -17,7 +17,7 @@ from typing import Optional
 # Get from environment or use default
 TRACKER_ENDPOINT = os.environ.get(
     'TRACKER_ENDPOINT',
-    'https://api.jsonbin.io/v3/b/6952770eae596e708fb802c6'  # Will be replaced during setup
+    'https://api.jsonbin.io/v3/b/YOUR_BIN_ID'  # Will be replaced during setup
 )
 
 TRACKER_API_KEY = os.environ.get('TRACKER_API_KEY', '')
@@ -70,18 +70,58 @@ def send_usage_data(data: dict) -> bool:
         if TRACKER_API_KEY:
             headers['X-Master-Key'] = TRACKER_API_KEY
         
-        response = requests.post(
+        # Step 1: GET current data from bin
+        get_response = requests.get(
             TRACKER_ENDPOINT,
-            json=data,
             headers=headers,
-            timeout=5
+            timeout=10
         )
         
-        if response.status_code in [200, 201]:
-            print(f"✅ [TRACKER] Data sent successfully")
-            return True
+        if get_response.status_code == 200:
+            response_data = get_response.json()
+            
+            # Handle JSONBin structure: response has 'record' key
+            if isinstance(response_data, dict) and 'record' in response_data:
+                record = response_data['record']
+                
+                # Check if data is nested under 'data' key
+                if isinstance(record, dict) and 'data' in record:
+                    records = record['data']
+                elif isinstance(record, list):
+                    records = record
+                else:
+                    records = []
+            else:
+                records = response_data if isinstance(response_data, list) else []
+            
+            # Ensure it's a list
+            if not isinstance(records, list):
+                records = []
+            
+            # Step 2: Append new data
+            records.append(data)
+            
+            # Step 3: PUT updated data back
+            # JSONBin expects data wrapped in appropriate structure
+            put_data = {"data": records}
+            
+            put_response = requests.put(
+                TRACKER_ENDPOINT,
+                json=put_data,
+                headers=headers,
+                timeout=10
+            )
+            
+            if put_response.status_code in [200, 201]:
+                print(f"✅ [TRACKER] Data sent successfully")
+                return True
+            else:
+                print(f"⚠️ [TRACKER] Failed to send (HTTP {put_response.status_code})")
+                print(f"    Response: {put_response.text[:200]}")
+                return False
         else:
-            print(f"⚠️ [TRACKER] Failed to send (HTTP {response.status_code})")
+            print(f"⚠️ [TRACKER] Failed to read bin (HTTP {get_response.status_code})")
+            print(f"    Response: {get_response.text[:200]}")
             return False
             
     except Exception as e:
