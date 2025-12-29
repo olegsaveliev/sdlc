@@ -38,6 +38,8 @@ jobs:
       issues: write
     secrets:
       OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
+      TRACKER_ENDPOINT: ${{ secrets.TRACKER_ENDPOINT }}    # ← ADD THIS
+      TRACKER_API_KEY: ${{ secrets.TRACKER_API_KEY }}
 
   # ═══════════════════════════════════════════════════════════
   # STEP 3: Run Regression Tests (ONLY on Pull Requests)
@@ -56,6 +58,8 @@ jobs:
       JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
       JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
       JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+      TRACKER_ENDPOINT: ${{ secrets.TRACKER_ENDPOINT }}    # ← ADD THIS
+      TRACKER_API_KEY: ${{ secrets.TRACKER_API_KEY }}
 
   # ═══════════════════════════════════════════════════════════
   # STEP 4: Deploy to Staging (ONLY after merge to main)
