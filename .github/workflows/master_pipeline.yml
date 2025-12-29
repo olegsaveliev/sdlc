@@ -23,6 +23,8 @@ jobs:
       pull-requests: write
     secrets:
       OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
+      TRACKER_ENDPOINT: ${{ secrets.TRACKER_ENDPOINT }}    # ← ADD THIS
+      TRACKER_API_KEY: ${{ secrets.TRACKER_API_KEY }}
 
   # ═══════════════════════════════════════════════════════════
   # STEP 2: Run Unit Tests (ONLY on Pull Requests)
