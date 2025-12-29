@@ -5,6 +5,10 @@ on:
     secrets:
       OPENAI_KEY:
         required: true
+      TRACKER_ENDPOINT:           # ← ADD THIS
+        required: false
+      TRACKER_API_KEY:            # ← ADD THIS
+        required: false
 
 jobs:
   unit-tests:
