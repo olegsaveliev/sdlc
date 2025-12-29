@@ -1,9 +1,11 @@
 import os
 import glob
 import openai
+from auto_tracker import track_openai  # ← ADDED: Auto-tracking import
 
 # 1. SETUP
 client = openai.OpenAI(api_key=os.environ.get("OPENAI_KEY"))
+client = track_openai(client)  # ← ADDED: Enable auto-tracking
 
 # 2. FIND CODE DYNAMICALLY (no hardcoded main.py)
 print("🔍 Searching for application code...")
