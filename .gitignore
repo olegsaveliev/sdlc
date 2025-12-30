@@ -1,3 +1,54 @@
+# AI Usage Dashboard - Git Ignore
+
+# Sensitive configuration
+.env
+.env.local
+.env.production
+
+	.DS_Store
+	ai-usage-dashboard/
+	scripts/scrum_master_agent_3questions.py
+	scrum_master_TRACKED_clean.yml
+	venv/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+usage_data.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+dashboard.log
+nohup.out
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+/tmp/
+
 .DS_Store
 venv/
 ai-usage-dashboard/
