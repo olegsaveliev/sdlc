@@ -26,4 +26,5 @@ jobs:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
           TRACKER_ENDPOINT: ${{ secrets.TRACKER_ENDPOINT }}
           TRACKER_API_KEY: ${{ secrets.TRACKER_API_KEY }}
+          AGENT_NAME: SCRUM_MASTER
         run: python scripts/scrum_master_agent.py
