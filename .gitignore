@@ -1,0 +1,5 @@
+.DS_Store
+venv/
+ai-usage-dashboard/
+scripts/scrum_master_agent_3questions.py
+scrum_master_TRACKED_clean.yml
