@@ -4,7 +4,7 @@
 .env
 .env.local
 .env.production
-
+claude_session_tracker_multi_model.sh
 	.DS_Store
 	ai-usage-dashboard/
 	scripts/scrum_master_agent_3questions.py
