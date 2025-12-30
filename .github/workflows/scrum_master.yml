@@ -1,51 +1,29 @@
 name: AI Scrum Master
-on: workflow_dispatch # Manual Trigger button
+
+on:
+  workflow_dispatch:  # Manual trigger
+  #schedule:
+   # - cron: '0 9 * * 1-5'  # Every weekday at 9 AM UTC
 
 jobs:
-  report:
+  daily-standup:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with: { fetch-depth: 0 } # Get full history
-
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with: { python-version: '3.10' }
-
-      - name: Install Libraries
+        with:
+          fetch-depth: 0  # Get full git history
+      
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: 📦 Install Dependencies
         run: pip install openai gitpython requests
-
-      - name: Generate Report
+      
+      - name: 📊 Generate Daily Standup Report
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_KEY }}
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-        run: |
-          python -c "
-          import os, git, requests
-          from openai import OpenAI
-          from datetime import datetime, timedelta
-
-          # 1. GET GIT LOGS
-          try:
-              repo = git.Repo('.')
-              # Look back 24 hours
-              cutoff = datetime.now() - timedelta(hours=24)
-              commits = [c for c in repo.iter_commits() if datetime.fromtimestamp(c.committed_date) > cutoff]
-              log_text = '\n'.join([f'- {c.summary} (by {c.author.name})' for c in commits]) or 'No commits today.'
-          except Exception as e:
-              log_text = f'Error reading git logs: {e}'
-
-          # 2. ASK AI
-          client = OpenAI()
-          prompt = f'Summarize these git logs for a Daily Standup in Slack format:\n\n{log_text}'
-
-          response = client.chat.completions.create(
-              model='gpt-4',
-              messages=[{'role': 'user', 'content': prompt}]
-          )
-          report = response.choices[0].message.content
-
-          # 3. SEND TO SLACK
-          requests.post(os.getenv('SLACK_WEBHOOK'), json={'text': report})
-          print('Sent to Slack!')
-          "
+          TRACKER_ENDPOINT: ${{ secrets.TRACKER_ENDPOINT }}
+          TRACKER_API_KEY: ${{ secrets.TRACKER_API_KEY }}
+        run: python scripts/scrum_master_agent.py
