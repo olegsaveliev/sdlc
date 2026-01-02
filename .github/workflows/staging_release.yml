@@ -3,7 +3,6 @@ name: Module - Release to Staging
 on:
   workflow_call:
 
-# These are like variables we can use throughout
 env:
   AWS_REGION: us-east-1
   ECR_REPOSITORY: my-app-staging
@@ -24,24 +23,24 @@ jobs:
         uses: actions/checkout@v4
       
       # ════════════════════════════════════════════════════════
-      # STEP 2: Login to AWS
+      # STEP 2: Login to AWS - FIXED VERSION
       # ════════════════════════════════════════════════════════
       - name: 🔐 Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-region: us-east-1
       
       # ════════════════════════════════════════════════════════
-      # STEP 3: Login to AWS Container Registry (where we store the app)
+      # STEP 3: Login to AWS Container Registry
       # ════════════════════════════════════════════════════════
       - name: 🐳 Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
       
       # ════════════════════════════════════════════════════════
-      # STEP 4: Build your app into a Docker container
+      # STEP 4: Build Docker Image
       # ════════════════════════════════════════════════════════
       - name: 🔨 Build Docker Image
         id: build-image
@@ -53,7 +52,6 @@ jobs:
           echo "🔨 Building Docker image..."
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           
-          # Build the image
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
           
@@ -61,7 +59,7 @@ jobs:
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
       
       # ════════════════════════════════════════════════════════
-      # STEP 5: Push (upload) the container to AWS
+      # STEP 5: Push Image to ECR
       # ════════════════════════════════════════════════════════
       - name: 📤 Push Image to ECR
         env:
@@ -78,7 +76,7 @@ jobs:
           echo "✅ Image pushed successfully!"
       
       # ════════════════════════════════════════════════════════
-      # STEP 6: Create a task definition (recipe for how to run your app)
+      # STEP 6: Create Task Definition
       # ════════════════════════════════════════════════════════
       - name: 📝 Create ECS Task Definition
         id: task-def
@@ -113,7 +111,8 @@ jobs:
                   "options": {
                     "awslogs-group": "/ecs/my-app-staging",
                     "awslogs-region": "$AWS_REGION",
-                    "awslogs-stream-prefix": "ecs"
+                    "awslogs-stream-prefix": "ecs",
+                    "awslogs-create-group": "true"
                   }
                 }
               }
@@ -124,7 +123,7 @@ jobs:
           echo "✅ Task definition created!"
       
       # ════════════════════════════════════════════════════════
-      # STEP 7: Deploy to ECS (tell AWS to run your new app version)
+      # STEP 7: Deploy to ECS
       # ════════════════════════════════════════════════════════
       - name: 🚀 Deploy to Amazon ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
@@ -135,7 +134,7 @@ jobs:
           wait-for-service-stability: true
       
       # ════════════════════════════════════════════════════════
-      # STEP 8: Print success message with URL
+      # STEP 8: Deployment Complete
       # ════════════════════════════════════════════════════════
       - name: ✅ Deployment Complete
         run: |
