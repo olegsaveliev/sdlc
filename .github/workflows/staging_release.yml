@@ -21,7 +21,24 @@ jobs:
       # ════════════════════════════════════════════════════════
       - name: 📥 Checkout Code
         uses: actions/checkout@v4
-      
+        # DEBUG STEP - Remove after fixing
+      - name: 🔍 Debug - Check Secrets
+        run: |
+          echo "Checking if secrets are available..."
+          if [ -z "${{ secrets.AWS_ACCESS_KEY_ID }}" ]; then
+            echo "❌ AWS_ACCESS_KEY_ID is EMPTY or MISSING!"
+          else
+            echo "✅ AWS_ACCESS_KEY_ID is set (first 4 chars): ${AWS_ACCESS_KEY_ID:0:4}****"
+          fi
+          
+          if [ -z "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]; then
+            echo "❌ AWS_SECRET_ACCESS_KEY is EMPTY or MISSING!"
+          else
+            echo "✅ AWS_SECRET_ACCESS_KEY is set (length: $(echo $AWS_SECRET_ACCESS_KEY | wc -c))"
+          fi
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       # ════════════════════════════════════════════════════════
       # STEP 2: Login to AWS - FIXED VERSION
       # ════════════════════════════════════════════════════════
