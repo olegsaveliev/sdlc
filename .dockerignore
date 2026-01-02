@@ -1,0 +1,16 @@
+# Don't include these files in your Docker container
+# (keeps it small and fast)
+
+__pycache__/
+*.pyc
+.git/
+.github/
+venv/
+.venv/
+.env
+*.log
+.DS_Store
+test_*.py
+scripts/
+*.db
+*.sqlite
