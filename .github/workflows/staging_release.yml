@@ -123,6 +123,7 @@ jobs:
             "requiresCompatibilities": ["FARGATE"],
             "cpu": "256",
             "memory": "512",
+            "executionRoleArn": "arn:aws:iam::074005039395:role/ecsTaskExecutionRole",
             "containerDefinitions": [
               {
                 "name": "$CONTAINER_NAME",
