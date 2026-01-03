@@ -23,7 +23,7 @@ jobs:
       pull-requests: write
     secrets:
       OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
-      TRACKER_ENDPOINT: ${{ secrets.TRACKER_ENDPOINT }}    # ← ADD THIS
+      TRACKER_ENDPOINT: ${{ secrets.TRACKER_ENDPOINT }}
       TRACKER_API_KEY: ${{ secrets.TRACKER_API_KEY }}
 
   # ═══════════════════════════════════════════════════════════
@@ -38,7 +38,7 @@ jobs:
       issues: write
     secrets:
       OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
-      TRACKER_ENDPOINT: ${{ secrets.TRACKER_ENDPOINT }}    # ← ADD THIS
+      TRACKER_ENDPOINT: ${{ secrets.TRACKER_ENDPOINT }}
       TRACKER_API_KEY: ${{ secrets.TRACKER_API_KEY }}
 
   # ═══════════════════════════════════════════════════════════
@@ -54,11 +54,10 @@ jobs:
       issues: write
     secrets:
       OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
-      # Jira integration - posts autotest results to Jira tickets
       JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
       JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
       JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
-      TRACKER_ENDPOINT: ${{ secrets.TRACKER_ENDPOINT }}    # ← ADD THIS
+      TRACKER_ENDPOINT: ${{ secrets.TRACKER_ENDPOINT }}
       TRACKER_API_KEY: ${{ secrets.TRACKER_API_KEY }}
 
   # ═══════════════════════════════════════════════════════════
@@ -67,3 +66,7 @@ jobs:
   call-staging:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     uses: ./.github/workflows/staging_release.yml
+    secrets:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
