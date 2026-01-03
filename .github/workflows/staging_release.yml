@@ -2,6 +2,13 @@ name: Module - Release to Staging
 
 on:
   workflow_call:
+    secrets:
+      AWS_ACCESS_KEY_ID:
+        required: true
+      AWS_SECRET_ACCESS_KEY:
+        required: true
+      AWS_REGION:
+        required: false
 
 env:
   AWS_REGION: us-east-1
@@ -21,7 +28,10 @@ jobs:
       # ════════════════════════════════════════════════════════
       - name: 📥 Checkout Code
         uses: actions/checkout@v4
-        # DEBUG STEP - Remove after fixing
+      
+      # ════════════════════════════════════════════════════════
+      # DEBUG STEP - Remove after everything works
+      # ════════════════════════════════════════════════════════
       - name: 🔍 Debug - Check Secrets
         run: |
           echo "Checking if secrets are available..."
@@ -39,15 +49,16 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      
       # ════════════════════════════════════════════════════════
-      # STEP 2: Login to AWS - FIXED VERSION
+      # STEP 2: Login to AWS
       # ════════════════════════════════════════════════════════
       - name: 🔐 Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+          aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
       
       # ════════════════════════════════════════════════════════
       # STEP 3: Login to AWS Container Registry
