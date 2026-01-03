@@ -1,8 +1,16 @@
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from calculator import add, subtract
 import os
+
+# Calculator functions
+def add(a, b):
+    """Add two numbers"""
+    return a + b
+
+def subtract(a, b):
+    """Subtract two numbers"""
+    return a - b
 
 app = FastAPI(title="Calculator API - Staging")
 
