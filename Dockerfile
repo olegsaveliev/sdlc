@@ -12,8 +12,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY calculator.py .
 COPY main.py .
 
-# Expose port 8000
-EXPOSE 8000
+# Expose port 80
+EXPOSE 80
 
 # Run the FastAPI application
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80"]
