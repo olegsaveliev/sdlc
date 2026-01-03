@@ -1,22 +1,19 @@
-# This is like a recipe for your app
-# Start with Python 3.10 (like starting with a clean kitchen)
+# Use Python 3.10 slim image
 FROM python:3.10-slim
 
-# Set the working folder inside the container
+# Set working directory
 WORKDIR /app
 
-# Copy requirements.txt first (if it exists)
-COPY requirements.txt* ./
+# Copy requirements and install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Install Python packages (if requirements.txt exists)
-RUN if [ -f requirements.txt ]; then pip install --no-cache-dir -r requirements.txt; fi
+# Copy application code
+COPY calculator.py .
+COPY main.py .
 
-# Copy all your code files
-COPY . .
-
-# Tell Docker your app listens on port 8000
+# Expose port 8000
 EXPOSE 8000
 
-# Start your app when the container runs
-# This creates a simple web server so QA can access it
-CMD python3 -c "import http.server; import socketserver; PORT = 8000; Handler = http.server.SimpleHTTPRequestHandler; httpd = socketserver.TCPServer(('', PORT), Handler); print(f'Server running on port {PORT}'); httpd.serve_forever()"
+# Run the FastAPI application
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
