@@ -320,7 +320,7 @@ def main():
     print("=" * 60)
     print()
 
-     # Step 4: Post to GitHub
+     # Step 5: Post to Slack
     
     slack_webhook = os.getenv('SLACK_WEBHOOK')
     
@@ -330,7 +330,7 @@ def main():
         try:
             response = requests.post(
                 slack_webhook,
-                json={'text': report},
+                json={'text': review},
                 timeout=10
             )
             
@@ -346,7 +346,7 @@ def main():
         print()
         print("Generated Report:")
         print("=" * 60)
-        print(report)
+        print(review)
         print("=" * 60)
     
     print()
