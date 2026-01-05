@@ -38,6 +38,7 @@ jobs:
       - name: 🤖 Run AI PR Review
         env:
           OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
+          SLACK_WEBHOOK: ${{ secrets.SLACK_PR_REVIEW }}
           TRACKER_ENDPOINT: ${{ secrets.TRACKER_ENDPOINT }}
           TRACKER_API_KEY: ${{ secrets.TRACKER_API_KEY }}
           AGENT_NAME: PR_REVIEW
