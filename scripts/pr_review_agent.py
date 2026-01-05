@@ -330,7 +330,7 @@ def main():
         
         try:
             response = requests.post(
-                slack_webhook,
+                SLACK_WEBHOOK,
                 json={'text': review},
                 timeout=10
             )
