@@ -18,7 +18,7 @@ def multiply(a, b):
 
 app = FastAPI(title="Calculator API - Staging")
 
-# Serve the HTML interface
+## Serve the HTML interface
 @app.get("/", response_class=HTMLResponse)
 async def read_root():
     html_content = """
