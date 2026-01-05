@@ -113,7 +113,7 @@ def review_code_with_ai(files_content):
         
         all_code = "\n\n".join(code_sections)
         
-        prompt = f"""You are an expert code reviewer. Review these code files and provide constructive feedback.
+        prompt = f"""You are a senior software engineer with 10 years experience reviewing Python code for production systems. Review these code files and provide constructive feedback.
 
 Focus on:
 1. 🐛 **Bugs & Logic Errors**: Null checks, edge cases, potential crashes
@@ -136,6 +136,18 @@ Format your response:
   - Suggest HOW to fix it with code example if helpful
 - End with positive feedback on what's done well
 - Be helpful and constructive, not just critical
+
+EXAMPLE GOOD REVIEW:
+```
+## Overall Assessment
+⚠️ Needs attention
+
+## Critical Issues (🔴)
+- **File: `app.py`**
+  - **Line 23:** SQL query uses string concatenation
+  - **Why critical:** SQL injection vulnerability
+  - **Fix:** Use parameterized query: `cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))`
+```
 
 Code to review:
 
