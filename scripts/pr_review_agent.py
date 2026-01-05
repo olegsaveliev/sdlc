@@ -7,6 +7,7 @@ Reviews the actual code files in a pull request and provides feedback.
 import os
 import sys
 import git
+import re
 import requests
 from openai import OpenAI
 from auto_tracker import track_openai  # ← ADDED: Auto-tracking import
@@ -268,6 +269,14 @@ def main():
     print("\n" + "=" * 60)
     print("🤖 AI PR Review Agent - Simple Code Review")
     print("=" * 60)
+
+      # 👇 NEW: Add validation here
+    is_valid, red_flags = validate_ai_review(review)
+    if not is_valid:
+        # Add warning to review
+        review = warning_banner + review
+    
+    post_to_github(review, list(files_content.keys()))
     
     # Validate environment
     if not OPENAI_KEY:
@@ -312,6 +321,53 @@ def main():
     if not review:
         print("\n❌ Failed to generate review")
         sys.exit(1)
+
+    # Safety Checks
+
+    def validate_ai_review(review_text):
+    """Check if AI review is actually useful or just hallucinating."""
+    
+    red_flags = []
+    
+    # Check 1: Did it just repeat the prompt?
+    if "Focus on" in review_text and "Bugs & Logic Errors" in review_text:
+        red_flags.append("AI might be repeating instructions")
+    
+    # Check 2: Is it too generic?
+    generic_phrases = [
+        "looks good",
+        "well written",
+        "no issues found",
+        "consider refactoring"  # without specifics
+    ]
+    
+    if any(phrase in review_text.lower() for phrase in generic_phrases):
+        if "Line" not in review_text:  # No specific line numbers
+            red_flags.append("Review too generic - no specific issues cited")
+    
+    # Check 3: Did it reference actual code?
+    if len(re.findall(r'`[^`]+`', review_text)) < 3:
+        red_flags.append("No code examples in review")
+    
+    # Check 4: Is it suspiciously short?
+    if len(review_text) < 200:
+        red_flags.append("Review too short")
+    
+    if red_flags:
+        print("⚠️ QUALITY WARNINGS:")
+        for flag in red_flags:
+            print(f"  - {flag}")
+        
+        # In production: retry with better prompt or flag for human review
+        return False
+    
+    return True
+
+# Use it:
+review = review_code_with_ai(files_content)
+if not validate_ai_review(review):
+    print("❌ AI review failed validation - flagging for manual review")
+    # Don't post to PR, send to Slack instead
     
     # Step 4: Post to GitHub
     post_to_github(review, list(files_content.keys()))
