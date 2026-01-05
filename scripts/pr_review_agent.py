@@ -10,7 +10,7 @@ import git
 import re
 import requests
 from openai import OpenAI
-from auto_tracker import track_openai  # ← ADDED: Auto-tracking import
+from auto_tracker import track_openai  # ← Auto-tracking import
 
 # ═══════════════════════════════════════════════════════════
 # Configuration
@@ -23,13 +23,12 @@ REPO_OWNER = os.environ.get('REPO_OWNER')
 REPO_NAME = os.environ.get('REPO_NAME')
 BASE_REF = os.environ.get('BASE_REF')
 GITHUB_RUN_URL = os.environ.get('GITHUB_RUN_URL')
-#SLACK_WEBHOOK = os.environ.get('SLACK_PR_REVIEW')
-#SLACK_WEBHOOK = os.environ.get('SLACK_WEBHOOK')
+SLACK_WEBHOOK = os.environ.get('SLACK_WEBHOOK')
 
 # Review settings
 MAX_FILE_SIZE = 5000  # Max characters per file to review
 MAX_FILES = 10        # Max number of files to review
-AI_MODEL = 'GPT-4o-mini'
+AI_MODEL = 'gpt-4o-mini'
 AI_TEMPERATURE = 0.3
 AI_MAX_TOKENS = 1500
 
@@ -107,7 +106,7 @@ def review_code_with_ai(files_content):
     
     try:
         client = OpenAI(api_key=OPENAI_KEY)
-        client = track_openai(client)  # ← ADDED: Enable auto-tracking
+        client = track_openai(client)
         
         # Build code content string
         code_sections = []
@@ -141,18 +140,7 @@ Format your response:
 - Be helpful and constructive, not just critical
 
 EXAMPLE GOOD REVIEW:
-```
-## Overall Assessment
-⚠️ Needs attention
-
-## Critical Issues (🔴)
-- **File: `app.py`**
-  - **Line 23:** SQL query uses string concatenation
-  - **Why critical:** SQL injection vulnerability
-  - **Fix:** Use parameterized query: `cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))`
-```
-
-Code to review:
+        Code to review:
 
 {all_code}
 
@@ -179,6 +167,44 @@ Provide your code review:"""
     except Exception as e:
         print(f"❌ Error during AI review: {e}")
         return f"⚠️ AI review failed: {e}\n\nPlease review manually."
+
+
+def validate_ai_review(review_text):
+    """Check if AI review is actually useful or just hallucinating."""
+    
+    red_flags = []
+    
+    # Check 1: Did it just repeat the prompt?
+    if "Focus on" in review_text and "Bugs & Logic Errors" in review_text:
+        red_flags.append("AI might be repeating instructions")
+    
+    # Check 2: Is it too generic?
+    generic_phrases = [
+        "looks good",
+        "well written",
+        "no issues found",
+        "consider refactoring"  # without specifics
+    ]
+    
+    if any(phrase in review_text.lower() for phrase in generic_phrases):
+        if "Line" not in review_text:  # No specific line numbers
+            red_flags.append("Review too generic - no specific issues cited")
+    
+    # Check 3: Did it reference actual code? (Simple check for code ticks)
+    if review_text.count('`') < 2:
+        red_flags.append("No code examples/references in review")
+    
+    # Check 4: Is it suspiciously short?
+    if len(review_text) < 200:
+        red_flags.append("Review too short")
+    
+    if red_flags:
+        print("⚠️ QUALITY WARNINGS:")
+        for flag in red_flags:
+            print(f"  - {flag}")
+        return False, red_flags
+    
+    return True, []
 
 
 def post_to_github(review_text, files_reviewed):
@@ -269,16 +295,8 @@ def main():
     print("\n" + "=" * 60)
     print("🤖 AI PR Review Agent - Simple Code Review")
     print("=" * 60)
-
-      # 👇 NEW: Add validation here
-    is_valid, red_flags = validate_ai_review(review)
-    if not is_valid:
-        # Add warning to review
-        review = warning_banner + review
     
-    post_to_github(review, list(files_content.keys()))
-    
-    # Validate environment
+    # 1. Validate environment
     if not OPENAI_KEY:
         print("❌ Error: OPENAI_KEY not set")
         sys.exit(1)
@@ -292,14 +310,14 @@ def main():
     print(f"   Repo: {REPO_OWNER}/{REPO_NAME}")
     print(f"   Model: {AI_MODEL}")
     
-    # Step 1: Get changed files
+    # 2. Get changed files
     changed_files = get_changed_files()
     
     if not changed_files:
         print("\n⚠️  No code files to review")
         sys.exit(0)
     
-    # Step 2: Read file contents
+    # 3. Read file contents
     print_step(2, "Reading File Contents")
     files_content = {}
     
@@ -315,79 +333,39 @@ def main():
     
     print(f"✅ Successfully read {len(files_content)} files")
     
-    # Step 3: Review with AI
+    # 4. Review with AI
     review = review_code_with_ai(files_content)
     
     if not review:
         print("\n❌ Failed to generate review")
         sys.exit(1)
 
-    # Safety Checks
-
-    def validate_ai_review(review_text):
-    """Check if AI review is actually useful or just hallucinating."""
+    # 5. Validate Review Quality
+    print("🔍 Validating review quality...")
+    is_valid, red_flags = validate_ai_review(review)
     
-    red_flags = []
+    if not is_valid:
+        print("⚠️ AI review flagged as low quality. Adding warning banner.")
+        warning_msg = "\n\n> ⚠️ **AI Warning:** This review may be generic or incomplete.\n> **Flags:** " + ", ".join(red_flags) + "\n\n"
+        review = warning_msg + review
     
-    # Check 1: Did it just repeat the prompt?
-    if "Focus on" in review_text and "Bugs & Logic Errors" in review_text:
-        red_flags.append("AI might be repeating instructions")
-    
-    # Check 2: Is it too generic?
-    generic_phrases = [
-        "looks good",
-        "well written",
-        "no issues found",
-        "consider refactoring"  # without specifics
-    ]
-    
-    if any(phrase in review_text.lower() for phrase in generic_phrases):
-        if "Line" not in review_text:  # No specific line numbers
-            red_flags.append("Review too generic - no specific issues cited")
-    
-    # Check 3: Did it reference actual code?
-    if len(re.findall(r'`[^`]+`', review_text)) < 3:
-        red_flags.append("No code examples in review")
-    
-    # Check 4: Is it suspiciously short?
-    if len(review_text) < 200:
-        red_flags.append("Review too short")
-    
-    if red_flags:
-        print("⚠️ QUALITY WARNINGS:")
-        for flag in red_flags:
-            print(f"  - {flag}")
-        
-        # In production: retry with better prompt or flag for human review
-        return False
-    
-    return True
-
-# Use it:
-review = review_code_with_ai(files_content)
-if not validate_ai_review(review):
-    print("❌ AI review failed validation - flagging for manual review")
-    # Don't post to PR, send to Slack instead
-    
-    # Step 4: Post to GitHub
+    # 6. Post to GitHub
     post_to_github(review, list(files_content.keys()))
     
-    print("\n" + "=" * 60)
-    print("✅ Code Review Complete!")
-    print("=" * 60)
-    print()
-
-     # Step 5: Post to Slack
-    
-    slack_webhook = os.getenv('SLACK_WEBHOOK')
-    
-    if slack_webhook:
+    # 7. Post to Slack
+    if SLACK_WEBHOOK:
         print("📨 Sending to Slack...")
-        
         try:
+            # Truncate for Slack to avoid massive messages
+            slack_text = f"🤖 *AI PR Review Complete* for <{GITHUB_RUN_URL}|#{PR_NUMBER}>\n\n"
+            if not is_valid:
+                slack_text += f"⚠️ *Quality Warning:* {', '.join(red_flags)}\n\n"
+            
+            slack_text += review[:500] + "..." if len(review) > 500 else review
+            
             response = requests.post(
-                slack_webhook,
-                json={'text': review},
+                SLACK_WEBHOOK,
+                json={'text': slack_text},
                 timeout=10
             )
             
@@ -400,13 +378,8 @@ if not validate_ai_review(review):
             print(f"⚠️  Failed to send to Slack: {e}")
     else:
         print("ℹ️  SLACK_WEBHOOK not configured, skipping Slack notification")
-        print()
-        print("Generated Report:")
-        print("=" * 60)
-        print(review)
-        print("=" * 60)
     
-    print()
+    print("\n" + "=" * 60)
     print("✅ PR review complete!")
 
 
