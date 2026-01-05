@@ -22,7 +22,8 @@ REPO_OWNER = os.environ.get('REPO_OWNER')
 REPO_NAME = os.environ.get('REPO_NAME')
 BASE_REF = os.environ.get('BASE_REF')
 GITHUB_RUN_URL = os.environ.get('GITHUB_RUN_URL')
-SLACK_WEBHOOK = os.environ.get('SLACK_PR_REVIEW')
+#SLACK_WEBHOOK = os.environ.get('SLACK_PR_REVIEW')
+SLACK_WEBHOOK = os.environ.get('SLACK_WEBHOOK')
 
 # Review settings
 MAX_FILE_SIZE = 5000  # Max characters per file to review
