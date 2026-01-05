@@ -3,7 +3,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 import os
 
-### Calculator functions
+###### Calculator functions
 def add(a, b):
     """Add two numbers"""
     return a + b
