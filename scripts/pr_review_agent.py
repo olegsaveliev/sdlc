@@ -28,7 +28,7 @@ GITHUB_RUN_URL = os.environ.get('GITHUB_RUN_URL')
 # Review settings
 MAX_FILE_SIZE = 5000  # Max characters per file to review
 MAX_FILES = 10        # Max number of files to review
-AI_MODEL = 'gpt-4o-mini'
+AI_MODEL = 'gpt-3.5-turbo'
 AI_TEMPERATURE = 0.3
 AI_MAX_TOKENS = 1500
 
