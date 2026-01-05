@@ -9,6 +9,9 @@ on:
         required: false
       TRACKER_API_KEY:
         required: false
+      SLACK_PR_REVIEW:
+        required: false
+        description: "Slack webhook URL for notifications"
 
 jobs:
   ai-review:
