@@ -102,7 +102,7 @@ async def read_root():
         
         .button-group {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr 1fr 1fr;
             gap: 15px;
             margin: 25px 0;
         }
@@ -130,10 +130,19 @@ async def read_root():
         .btn-subtract {
             background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
         }
-        
+
         .btn-subtract:hover {
             transform: translateY(-2px);
             box-shadow: 0 10px 20px rgba(245, 158, 11, 0.3);
+        }
+
+        .btn-multiply {
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        }
+
+        .btn-multiply:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(139, 92, 246, 0.3);
         }
         
         .result {
@@ -226,6 +235,7 @@ async def read_root():
             <div class="button-group">
                 <button class="btn-add" onclick="calculate('add')">➕ Add</button>
                 <button class="btn-subtract" onclick="calculate('subtract')">➖ Subtract</button>
+                <button class="btn-multiply" onclick="calculate('multiply')">✖️ Multiply</button>
             </div>
             
             <div class="loading" id="loading">⏳ Calculating...</div>
@@ -241,6 +251,7 @@ async def read_root():
             <h3>📡 API Endpoints</h3>
             <p style="margin: 5px 0;"><strong>Add:</strong> <code>GET /add?a={num1}&b={num2}</code></p>
             <p style="margin: 5px 0;"><strong>Subtract:</strong> <code>GET /subtract?a={num1}&b={num2}</code></p>
+            <p style="margin: 5px 0;"><strong>Multiply:</strong> <code>GET /multiply?a={num1}&b={num2}</code></p>
             <p style="margin: 5px 0;"><strong>Docs:</strong> <code>GET /docs</code></p>
         </div>
         
@@ -323,6 +334,13 @@ async def api_subtract(a: float, b: float):
     """Subtract two numbers"""
     result = subtract(a, b)
     return {"operation": "subtract", "a": a, "b": b, "result": result}
+
+
+@app.get("/multiply")
+async def api_multiply(a: float, b: float):
+    """Multiply two numbers"""
+    result = multiply(a, b)
+    return {"operation": "multiply", "a": a, "b": b, "result": result}
 
 
 @app.get("/health")
