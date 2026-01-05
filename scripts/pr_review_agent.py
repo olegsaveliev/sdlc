@@ -22,6 +22,7 @@ REPO_OWNER = os.environ.get('REPO_OWNER')
 REPO_NAME = os.environ.get('REPO_NAME')
 BASE_REF = os.environ.get('BASE_REF')
 GITHUB_RUN_URL = os.environ.get('GITHUB_RUN_URL')
+SLACK_WEBHOOK = os.environ.get('SLACK_PR_REVIEW')
 
 # Review settings
 MAX_FILE_SIZE = 5000  # Max characters per file to review
@@ -319,9 +320,7 @@ def main():
     print("=" * 60)
     print()
 
-    # ═══════════════════════════════════════════════════════════
-    # STEP 3: Send to Slack
-    # ═══════════════════════════════════════════════════════════
+     # Step 4: Post to GitHub
     
     slack_webhook = os.getenv('SLACK_WEBHOOK')
     
