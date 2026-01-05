@@ -319,6 +319,40 @@ def main():
     print("=" * 60)
     print()
 
+    # ═══════════════════════════════════════════════════════════
+    # STEP 3: Send to Slack
+    # ═══════════════════════════════════════════════════════════
+    
+    slack_webhook = os.getenv('SLACK_WEBHOOK')
+    
+    if slack_webhook:
+        print("📨 Sending to Slack...")
+        
+        try:
+            response = requests.post(
+                slack_webhook,
+                json={'text': report},
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                print("✅ Report sent to Slack!")
+            else:
+                print(f"⚠️  Slack returned: {response.status_code}")
+                
+        except Exception as e:
+            print(f"⚠️  Failed to send to Slack: {e}")
+    else:
+        print("ℹ️  SLACK_WEBHOOK not configured, skipping Slack notification")
+        print()
+        print("Generated Report:")
+        print("=" * 60)
+        print(report)
+        print("=" * 60)
+    
+    print()
+    print("✅ PR review complete!")
+
 
 # ═══════════════════════════════════════════════════════════
 # Entry Point
