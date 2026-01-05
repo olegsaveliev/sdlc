@@ -23,7 +23,7 @@ REPO_NAME = os.environ.get('REPO_NAME')
 BASE_REF = os.environ.get('BASE_REF')
 GITHUB_RUN_URL = os.environ.get('GITHUB_RUN_URL')
 #SLACK_WEBHOOK = os.environ.get('SLACK_PR_REVIEW')
-SLACK_WEBHOOK = os.environ.get('SLACK_WEBHOOK')
+#SLACK_WEBHOOK = os.environ.get('SLACK_WEBHOOK')
 
 # Review settings
 MAX_FILE_SIZE = 5000  # Max characters per file to review
@@ -325,12 +325,12 @@ def main():
     
     slack_webhook = os.getenv('SLACK_WEBHOOK')
     
-    if SLACK_WEBHOOK:
+    if slack_webhook:
         print("📨 Sending to Slack...")
         
         try:
             response = requests.post(
-                SLACK_WEBHOOK,
+                slack_webhook,
                 json={'text': review},
                 timeout=10
             )
