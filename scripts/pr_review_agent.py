@@ -323,9 +323,9 @@ def main():
 
      # Step 5: Post to Slack
     
-    #slack_webhook = os.getenv('SLACK_WEBHOOK')
+    slack_webhook = os.getenv('SLACK_WEBHOOK')
     
-    if slack_webhook:
+    if SLACK_WEBHOOK:
         print("📨 Sending to Slack...")
         
         try:
