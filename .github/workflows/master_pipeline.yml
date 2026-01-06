@@ -5,7 +5,7 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
-# ✅ FIXED: Don't trigger deployment for workflow/doc changes
+## ✅ FIXED: Don't trigger deployment for workflow/doc changes
     paths-ignore:
       - '.github/workflows/**'        # Workflow changes
       - '**.md'                        # Markdown/README changes
