@@ -34,6 +34,7 @@ jobs:
       OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
       TRACKER_ENDPOINT: ${{ secrets.TRACKER_ENDPOINT }}
       TRACKER_API_KEY: ${{ secrets.TRACKER_API_KEY }}
+      SLACK_PR_REVIEW: ${{ secrets.SLACK_PR_REVIEW }}
 
   # ═══════════════════════════════════════════════════════════
   # STEP 2: Run Unit Tests (ONLY on Pull Requests)
