@@ -11,7 +11,6 @@ on:
         required: false
       SLACK_PR_REVIEW:
         required: false
-        description: "Slack webhook URL for notifications"
 
 jobs:
   ai-review:
@@ -30,26 +29,45 @@ jobs:
       - name: 📦 Install Dependencies
         run: pip install openai requests gitpython
       
-      - name: 🔍 Debug Environment
-        env:
-          TRACKER_ENDPOINT: ${{ secrets.TRACKER_ENDPOINT }}
-          TRACKER_API_KEY: ${{ secrets.TRACKER_API_KEY }}
-        run: |
-          echo "Tracker endpoint set: $([[ -n "$TRACKER_ENDPOINT" ]] && echo 'YES' || echo 'NO')"
-          echo "Tracker API key set: $([[ -n "$TRACKER_API_KEY" ]] && echo 'YES' || echo 'NO')"
-      
       - name: 🤖 Run AI PR Review
         env:
           OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
           SLACK_WEBHOOK: ${{ secrets.SLACK_PR_REVIEW }}
           TRACKER_ENDPOINT: ${{ secrets.TRACKER_ENDPOINT }}
           TRACKER_API_KEY: ${{ secrets.TRACKER_API_KEY }}
-          AGENT_NAME: PR_REVIEW
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO_OWNER: ${{ github.repository_owner }}
           REPO_NAME: ${{ github.event.repository.name }}
           BASE_REF: ${{ github.base_ref }}
-          HEAD_REF: ${{ github.head_ref }}
-          GITHUB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          GITHUB_RUN_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         run: python scripts/pr_review_agent.py
+
+  # 👇 NEW JOB: Runs the approval logic defined in the exercise
+  approval-check:
+    needs: ai-review
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - uses: actions/setup-python@v4
+        with: { python-version: '3.10' }
+        
+      - name: 📦 Install Dependencies
+        run: pip install requests gitpython
+
+      - name: 🚦 Run Approval Gate
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+          BASE_REF: ${{ github.base_ref }}
+          TEST_STATUS: "passed" # Simulated for this exercise
+        run: python scripts/pr_approval_checker.py
