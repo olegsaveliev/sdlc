@@ -25,7 +25,6 @@ jobs:
       OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
       TRACKER_ENDPOINT: ${{ secrets.TRACKER_ENDPOINT }}
       TRACKER_API_KEY: ${{ secrets.TRACKER_API_KEY }}
-      # 👇 Don't forget to pass it here too!
       SLACK_PR_REVIEW: ${{ secrets.SLACK_PR_REVIEW }}
 
   # ═══════════════════════════════════════════════════════════
@@ -63,7 +62,54 @@ jobs:
       TRACKER_API_KEY: ${{ secrets.TRACKER_API_KEY }}
 
   # ═══════════════════════════════════════════════════════════
-  # STEP 4: Deploy to Staging (ONLY after merge to main)
+  # ⭐ NEW STEP 4: PR Approval Decision (ONLY on Pull Requests)
+  # ═══════════════════════════════════════════════════════════
+  pr-approval-check:
+    needs: [call-pr-review, call-quality, call-ai-autotest]
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    outputs:
+      auto_approve: ${{ steps.approval.outputs.auto_approve }}
+      confidence: ${{ steps.approval.outputs.confidence }}
+      reason: ${{ steps.approval.outputs.reason }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install dependencies
+        run: pip install requests
+      
+      - name: 🎯 Run PR Approval Checker
+        id: approval
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          SLACK_WEBHOOK: ${{ secrets.SLACK_PR_REVIEW }}
+        run: python scripts/pr_approval_checker.py
+      
+      - name: 📊 Display Decision
+        run: |
+          echo "════════════════════════════════════════════════════"
+          echo "PR APPROVAL DECISION"
+          echo "════════════════════════════════════════════════════"
+          echo "Auto-approve: ${{ steps.approval.outputs.auto_approve }}"
+          echo "Confidence: ${{ steps.approval.outputs.confidence }}"
+          echo "Reason: ${{ steps.approval.outputs.reason }}"
+          echo "════════════════════════════════════════════════════"
+
+  # ═══════════════════════════════════════════════════════════
+  # STEP 5: Deploy to Staging (ONLY after merge to main)
   # ═══════════════════════════════════════════════════════════
   call-staging:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
