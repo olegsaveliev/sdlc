@@ -144,7 +144,17 @@ async def read_root():
             transform: translateY(-2px);
             box-shadow: 0 10px 20px rgba(139, 92, 246, 0.3);
         }
-        
+
+        .btn-reset {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            grid-column: span 3;
+        }
+
+        .btn-reset:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(239, 68, 68, 0.3);
+        }
+
         .result {
             background: #f3f4f6;
             padding: 20px;
@@ -236,6 +246,7 @@ async def read_root():
                 <button class="btn-add" onclick="calculate('add')">➕ Add</button>
                 <button class="btn-subtract" onclick="calculate('subtract')">➖ Subtract</button>
                 <button class="btn-multiply" onclick="calculate('multiply')">✖️ Multiply</button>
+                <button class="btn-reset" onclick="reset()">🔄 Reset</button>
             </div>
             
             <div class="loading" id="loading">⏳ Calculating...</div>
@@ -309,6 +320,17 @@ async def read_root():
             }
         }
         
+        function reset() {
+            const resultValue = document.getElementById('resultValue');
+            const error = document.getElementById('error');
+            const loading = document.getElementById('loading');
+
+            // Reset result display
+            resultValue.textContent = '-';
+            error.style.display = 'none';
+            loading.style.display = 'none';
+        }
+
         // Allow Enter key to trigger calculation
         document.getElementById('num2').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
