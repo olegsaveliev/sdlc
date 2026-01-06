@@ -5,6 +5,16 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+# ✅ FIXED: Don't trigger deployment for workflow/doc changes
+    paths-ignore:
+      - '.github/workflows/**'        # Workflow changes
+      - '**.md'                        # Markdown/README changes
+      - 'docs/**'                      # Documentation folder
+      - '.gitignore'                   # Git config
+      - 'LICENSE'                      # License file
+      - '.editorconfig'                # Editor config
+      - 'PROJECT_GUIDE*.md'            # Project guides
+      - 'PR_APPROVAL*.md'              # PR approval docs
 
 permissions:
   contents: read
