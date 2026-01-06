@@ -21,11 +21,11 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+      issues: write  # 👈 ADD THIS (Needed to assign reviewers)
     secrets:
       OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
       TRACKER_ENDPOINT: ${{ secrets.TRACKER_ENDPOINT }}
       TRACKER_API_KEY: ${{ secrets.TRACKER_API_KEY }}
-      # 👇 Don't forget to pass it here too!
       SLACK_PR_REVIEW: ${{ secrets.SLACK_PR_REVIEW }}
 
   # ═══════════════════════════════════════════════════════════
@@ -67,8 +67,7 @@ jobs:
   # ═══════════════════════════════════════════════════════════
   call-staging:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    uses: ./.github/workflows/staging_release.yml
+    uses: ./.github/workflows/deploy.yml
     secrets:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_REGION: ${{ secrets.AWS_REGION }}
+      TRACKER_ENDPOINT: ${{ secrets.TRACKER_ENDPOINT }}
+      TRACKER_API_KEY: ${{ secrets.TRACKER_API_KEY }}
