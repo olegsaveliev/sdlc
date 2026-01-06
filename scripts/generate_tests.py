@@ -49,17 +49,35 @@ if not code_content.strip():
 
 # 4. ASK AI
 print("🤖 AI generating regression tests...")
-prompt = f"""You are a QA Automation Engineer.
-Generate exactly 5 distinct pytest test cases for this code.
+# AFTER (chain-of-thought)
+prompt = """You are generating pytest tests. Think step-by-step:
 
-Rules:
-1. Output ONLY Python code (no markdown)
-2. Test realistic scenarios (success, edge cases, boundaries)
-3. Don't assume error handling unless it exists in the code
-4. Name functions: test_ai_generated_1, test_ai_generated_2, etc.
+STEP 1: UNDERSTAND THE CODE
+Read the code and describe:
+- What does this function do?
+- What are the inputs and outputs?
+- What are the edge cases?
 
-Code:
-{code_content}"""
+STEP 2: IDENTIFY TEST SCENARIOS
+List 5 specific scenarios to test:
+1. Happy path (normal input)
+2. Edge case 1: [describe]
+3. Edge case 2: [describe]
+4. Boundary condition: [describe]
+5. Error case: [describe]
+
+STEP 3: GENERATE TESTS
+Write pytest functions for each scenario.
+Each test should:
+- Have a descriptive name
+- Include a docstring explaining what it tests
+- Use concrete test data
+- Have clear assertions
+
+Now, apply this process to:
+{code}
+
+THINK THROUGH STEPS 1-2 FIRST, THEN GENERATE TESTS."""
 
 try:
     response = client.chat.completions.create(
