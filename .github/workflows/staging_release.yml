@@ -2,6 +2,19 @@ name: Module - Release to Staging
 
 on:
   workflow_call:
+    secrets:
+      AWS_ACCESS_KEY_ID:           # ← ADDED
+        required: true
+      AWS_SECRET_ACCESS_KEY:       # ← ADDED
+        required: true
+      AWS_REGION:                  # ← ADDED
+        required: false
+      EC2_HOST:
+        required: true
+      EC2_USERNAME:
+        required: true
+      EC2_SSH_KEY:
+        required: true
 
 jobs:
   release:
