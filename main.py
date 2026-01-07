@@ -99,6 +99,11 @@ async def read_root():
             border-color: #667eea;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
+
+        input[type="number"]::placeholder {
+            font-style: italic;
+            color: #d1d5db;
+        }
         
         .button-group {
             display: grid;
@@ -234,12 +239,12 @@ async def read_root():
         <div class="calculator">
             <div class="input-group">
                 <label for="num1">First Number</label>
-                <input type="number" id="num1" placeholder="Enter first number" value="10">
+                <input type="number" id="num1" placeholder="type number">
             </div>
             
             <div class="input-group">
                 <label for="num2">Second Number</label>
-                <input type="number" id="num2" placeholder="Enter second number" value="5">
+                <input type="number" id="num2" placeholder="type number">
             </div>
             
             <div class="button-group">
