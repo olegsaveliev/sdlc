@@ -330,8 +330,12 @@ async def read_root():
             const error = document.getElementById('error');
             const loading = document.getElementById('loading');
 
+            // Reset input fields
+            document.getElementById('num1').value = 0;
+            document.getElementById('num2').value = 0;
+
             // Reset result display
-            resultValue.textContent = '-';
+            resultValue.textContent = 0;
             error.style.display = 'none';
             loading.style.display = 'none';
         }
