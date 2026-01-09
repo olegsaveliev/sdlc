@@ -32,245 +32,272 @@ async def read_root():
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+            background: #f5f5f7;
             min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
             padding: 20px;
         }
-        
+
         .container {
             background: white;
-            padding: 40px;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            max-width: 500px;
+            padding: 48px;
+            border-radius: 18px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07), 0 10px 20px rgba(0, 0, 0, 0.05);
+            max-width: 420px;
             width: 100%;
         }
-        
+
         h1 {
-            color: #667eea;
-            margin-bottom: 10px;
+            color: #1d1d1f;
+            margin-bottom: 8px;
             text-align: center;
-        }
-        
-        .status {
-            background: #10b981;
-            color: white;
-            padding: 10px 20px;
-            border-radius: 25px;
-            display: inline-block;
-            margin: 20px 0;
-            font-size: 14px;
+            font-size: 28px;
             font-weight: 600;
+            letter-spacing: -0.5px;
         }
-        
+
+        .status {
+            background: #f5f5f7;
+            color: #86868b;
+            padding: 6px 12px;
+            border-radius: 12px;
+            display: inline-block;
+            margin: 12px 0 32px;
+            font-size: 12px;
+            font-weight: 500;
+            letter-spacing: 0.2px;
+        }
+
         .calculator {
-            margin-top: 30px;
+            margin-top: 0;
         }
-        
+
         .input-group {
-            margin-bottom: 20px;
+            margin-bottom: 16px;
         }
-        
+
         label {
             display: block;
             margin-bottom: 8px;
-            color: #4b5563;
-            font-weight: 600;
+            color: #1d1d1f;
+            font-weight: 500;
             font-size: 14px;
+            letter-spacing: -0.1px;
         }
-        
+
         input[type="number"] {
             width: 100%;
             padding: 12px 16px;
-            border: 2px solid #e5e7eb;
-            border-radius: 8px;
-            font-size: 16px;
-            transition: all 0.3s;
+            border: 1px solid #d2d2d7;
+            border-radius: 10px;
+            font-size: 17px;
+            transition: all 0.2s ease;
+            background: #fafafa;
         }
-        
+
         input[type="number"]:focus {
             outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            border-color: #0071e3;
+            background: white;
+            box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.1);
         }
 
         input[type="number"]::placeholder {
-            font-style: italic;
-            color: #d1d5db;
+            color: #86868b;
         }
-        
+
         .button-group {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
-            gap: 15px;
-            margin: 25px 0;
+            gap: 12px;
+            margin: 28px 0 20px;
         }
-        
+
         button {
-            padding: 14px 24px;
+            padding: 12px 20px;
             border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 500;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: all 0.2s ease;
+            letter-spacing: -0.2px;
+        }
+
+        .btn-add {
+            background: #0071e3;
             color: white;
         }
-        
-        .btn-add {
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-        }
-        
+
         .btn-add:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(16, 185, 129, 0.3);
+            background: #0077ed;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 113, 227, 0.25);
         }
-        
+
         .btn-subtract {
-            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            background: #0071e3;
+            color: white;
         }
 
         .btn-subtract:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(245, 158, 11, 0.3);
+            background: #0077ed;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 113, 227, 0.25);
         }
 
         .btn-multiply {
-            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+            background: #0071e3;
+            color: white;
         }
 
         .btn-multiply:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(139, 92, 246, 0.3);
+            background: #0077ed;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 113, 227, 0.25);
         }
 
         .btn-reset {
-            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            background: #f5f5f7;
+            color: #1d1d1f;
             grid-column: span 3;
         }
 
         .btn-reset:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(239, 68, 68, 0.3);
+            background: #e8e8ed;
+            transform: translateY(-1px);
         }
 
         .result {
-            background: #f3f4f6;
-            padding: 20px;
-            border-radius: 10px;
-            margin-top: 25px;
+            background: #f5f5f7;
+            padding: 24px;
+            border-radius: 12px;
+            margin-top: 24px;
             text-align: center;
-            min-height: 80px;
+            min-height: 90px;
             display: flex;
             align-items: center;
             justify-content: center;
             flex-direction: column;
         }
-        
+
         .result-label {
-            color: #6b7280;
-            font-size: 14px;
-            margin-bottom: 8px;
-        }
-        
-        .result-value {
-            font-size: 32px;
-            font-weight: bold;
-            color: #667eea;
-        }
-        
-        .api-info {
-            background: #eff6ff;
-            border-left: 4px solid #3b82f6;
-            padding: 15px;
-            margin-top: 30px;
-            border-radius: 5px;
-        }
-        
-        .api-info h3 {
-            color: #1e40af;
-            margin-bottom: 10px;
-            font-size: 16px;
-        }
-        
-        .api-info code {
-            background: #dbeafe;
-            padding: 2px 6px;
-            border-radius: 3px;
+            color: #86868b;
             font-size: 13px;
-            color: #1e40af;
+            margin-bottom: 8px;
+            font-weight: 500;
+            letter-spacing: 0.2px;
         }
-        
+
+        .result-value {
+            font-size: 36px;
+            font-weight: 600;
+            color: #1d1d1f;
+            letter-spacing: -1px;
+            transition: transform 0.2s ease;
+        }
+
+        .api-info {
+            background: #f5f5f7;
+            padding: 20px;
+            margin-top: 32px;
+            border-radius: 12px;
+        }
+
+        .api-info h3 {
+            color: #1d1d1f;
+            margin-bottom: 12px;
+            font-size: 15px;
+            font-weight: 600;
+            letter-spacing: -0.2px;
+        }
+
+        .api-info code {
+            background: white;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            color: #1d1d1f;
+            font-family: 'SF Mono', Monaco, monospace;
+        }
+
+        .api-info p {
+            color: #1d1d1f;
+            font-size: 13px;
+        }
+
         .footer {
             text-align: center;
-            margin-top: 30px;
-            color: #9ca3af;
-            font-size: 13px;
+            margin-top: 32px;
+            color: #86868b;
+            font-size: 12px;
+            line-height: 1.6;
         }
-        
+
         .error {
-            color: #dc2626;
-            font-size: 14px;
-            margin-top: 10px;
+            color: #d60000;
+            font-size: 13px;
+            margin-top: 12px;
             display: none;
+            font-weight: 500;
         }
-        
+
         .loading {
             display: none;
-            color: #667eea;
-            font-size: 14px;
-            margin-top: 10px;
+            color: #0071e3;
+            font-size: 13px;
+            margin-top: 12px;
+            font-weight: 500;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🧮 Calculator API</h1>
+        <h1>Calculator</h1>
         <div style="text-align: center;">
-            <span class="status">✅ Staging Environment - LIVE</span>
+            <span class="status">Staging Environment</span>
         </div>
-        
+
         <div class="calculator">
             <div class="input-group">
                 <label for="num1">First Number</label>
-                <input type="number" id="num1" placeholder="type number">
+                <input type="number" id="num1" placeholder="0">
             </div>
-            
+
             <div class="input-group">
                 <label for="num2">Second Number</label>
-                <input type="number" id="num2" placeholder="type number">
+                <input type="number" id="num2" placeholder="0">
             </div>
-            
+
             <div class="button-group">
-                <button class="btn-add" onclick="calculate('add')">➕ Add</button>
-                <button class="btn-subtract" onclick="calculate('subtract')">➖ Subtract</button>
-                <button class="btn-multiply" onclick="calculate('multiply')">✖️ Multiply</button>
-                <button class="btn-reset" onclick="reset()">🔄 Reset</button>
+                <button class="btn-add" onclick="calculate('add')">Add</button>
+                <button class="btn-subtract" onclick="calculate('subtract')">Subtract</button>
+                <button class="btn-multiply" onclick="calculate('multiply')">Multiply</button>
+                <button class="btn-reset" onclick="reset()">Reset</button>
             </div>
-            
-            <div class="loading" id="loading">⏳ Calculating...</div>
+
+            <div class="loading" id="loading">Calculating...</div>
             <div class="error" id="error"></div>
-            
+
             <div class="result" id="result">
                 <div class="result-label">Result</div>
                 <div class="result-value" id="resultValue">-</div>
             </div>
         </div>
-        
+
         <div class="api-info">
-            <h3>📡 API Endpoints</h3>
+            <h3>API Endpoints</h3>
             <p style="margin: 5px 0;"><strong>Add:</strong> <code>GET /add?a={num1}&b={num2}</code></p>
             <p style="margin: 5px 0;"><strong>Subtract:</strong> <code>GET /subtract?a={num1}&b={num2}</code></p>
             <p style="margin: 5px 0;"><strong>Multiply:</strong> <code>GET /multiply?a={num1}&b={num2}</code></p>
             <p style="margin: 5px 0;"><strong>Docs:</strong> <code>GET /docs</code></p>
         </div>
-        
+
         <div class="footer">
             Deployed via GitHub Actions to AWS ECS Fargate<br>
             Last Updated: <span id="timestamp"></span>
