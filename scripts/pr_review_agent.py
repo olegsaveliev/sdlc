@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+"""
+AI PR Review Agent with Prompt Versioning
+Reviews the actual code files in a pull request and provides feedback.
+"""
+
 import os
 import sys
 import git
@@ -14,32 +19,51 @@ from auto_tracker import track_openai
 def load_prompt_config(version=None):
     """Load prompt configuration from JSON file."""
     
-    config_path = os.path.join(os.path.dirname(__file__), '../prompts/pr_review_prompts.json')
+    # Try multiple possible paths
+    possible_paths = [
+        'prompts/pr_review_prompts.json',
+        '../prompts/pr_review_prompts.json',
+        os.path.join(os.path.dirname(__file__), '../prompts/pr_review_prompts.json'),
+    ]
+    
+    config_path = None
+    for path in possible_paths:
+        if os.path.exists(path):
+            config_path = path
+            print(f"✅ Found config at: {path}")
+            break
+    
+    if not config_path:
+        print("⚠️  Prompt config file not found, using built-in default")
+        return None, 'default'
     
     try:
         with open(config_path, 'r') as f:
             config = json.load(f)
         
         # Use specified version or active version
-        prompt_version = version or os.environ.get('PROMPT_VERSION', config['active'])
+        prompt_version = version or os.environ.get('PROMPT_VERSION', config.get('active', 'default'))
         
-        if prompt_version not in config['prompts']:
-            print(f"⚠️  Prompt version '{prompt_version}' not found, using '{config['active']}'")
-            prompt_version = config['active']
+        if prompt_version not in config.get('prompts', {}):
+            print(f"⚠️  Prompt version '{prompt_version}' not found, using '{config.get('active', 'default')}'")
+            prompt_version = config.get('active', 'default')
+        
+        if prompt_version == 'default' or prompt_version not in config.get('prompts', {}):
+            return None, 'default'
         
         prompt_config = config['prompts'][prompt_version]
         print(f"📝 Using prompt version: {prompt_version} - {prompt_config['name']}")
         
         return prompt_config, prompt_version
         
-    except FileNotFoundError:
-        print("⚠️  Prompt config file not found, using default prompt")
-        return None, 'default'
     except Exception as e:
         print(f"⚠️  Error loading prompt config: {e}")
         return None, 'default'
 
-# Original configuration
+# ═══════════════════════════════════════════════════════════
+# Configuration
+# ═══════════════════════════════════════════════════════════
+
 OPENAI_KEY = os.environ.get('OPENAI_KEY')
 GITHUB_TOKEN = os.environ.get('GITHUB_TOKEN')
 PR_NUMBER = os.environ.get('PR_NUMBER')
@@ -49,11 +73,12 @@ BASE_REF = os.environ.get('BASE_REF')
 GITHUB_RUN_URL = os.environ.get('GITHUB_RUN_URL')
 SLACK_WEBHOOK = os.environ.get('SLACK_WEBHOOK')
 
+# Review settings
 MAX_FILE_SIZE = 5000
 MAX_FILES = 10
 
 # ═══════════════════════════════════════════════════════════
-# Functions (keep your existing functions)
+# Functions
 # ═══════════════════════════════════════════════════════════
 
 def print_step(step_num, title):
@@ -62,7 +87,59 @@ def print_step(step_num, title):
     print(f"STEP {step_num}: {title}")
     print("━" * 60)
 
-# ... keep all your existing functions (get_changed_files, read_file_content, etc.) ...
+
+def get_changed_files():
+    """Get list of files that changed in this PR."""
+    print_step(1, "Finding Changed Files")
+    
+    try:
+        repo = git.Repo('.')
+        
+        # Get files changed compared to base branch
+        repo.remotes.origin.fetch(BASE_REF)
+        base_commit = repo.commit(f'origin/{BASE_REF}')
+        head_commit = repo.commit('HEAD')
+        
+        # Get list of changed files
+        changed_files = []
+        diffs = base_commit.diff(head_commit)
+        
+        for diff in diffs:
+            file_path = diff.b_path if diff.b_path else diff.a_path
+            
+            if file_path and os.path.exists(file_path):
+                if file_path.endswith(('.py', '.js', '.jsx', '.ts', '.tsx', '.java', '.go', '.rb', '.php', '.c', '.cpp', '.h', '.cs')):
+                    changed_files.append(file_path)
+        
+        if not changed_files:
+            print("⚠️  No code files changed")
+            return []
+        
+        print(f"✅ Found {len(changed_files)} changed code files:")
+        for f in changed_files:
+            print(f"   📄 {f}")
+        
+        return changed_files[:MAX_FILES]
+        
+    except Exception as e:
+        print(f"❌ Error getting changed files: {e}")
+        return []
+
+
+def read_file_content(file_path):
+    """Read and return file content."""
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        if len(content) > MAX_FILE_SIZE:
+            content = content[:MAX_FILE_SIZE] + f"\n\n... (truncated - file is {len(content)} chars)"
+        
+        return content
+    except Exception as e:
+        print(f"⚠️  Could not read {file_path}: {e}")
+        return None
+
 
 def review_code_with_ai(files_content, prompt_config=None):
     """Send code to OpenAI for review using versioned prompt."""
@@ -80,7 +157,7 @@ def review_code_with_ai(files_content, prompt_config=None):
         all_code = "\n\n".join(code_sections)
         
         # ═══════════════════════════════════════════════════════════
-        # NEW: Use versioned prompt
+        # Use versioned prompt OR fallback to default
         # ═══════════════════════════════════════════════════════════
         
         if prompt_config:
@@ -93,16 +170,46 @@ def review_code_with_ai(files_content, prompt_config=None):
             print(f"🎯 Prompt: {prompt_config['name']}")
             print(f"📊 Settings: temp={temperature}, max_tokens={max_tokens}")
         else:
-            # Fallback to default prompt (your original)
-            system_message = "You are a senior software engineer with 10 years experience."
-            user_prompt = f"Review this code:\n\n{all_code}"
+            # Fallback to built-in default prompt
+            print("⚠️  Using built-in default prompt")
+            system_message = "You are a senior software engineer with 10 years experience reviewing Python code for production systems."
+            
+            user_prompt = f"""Review these code files and provide constructive feedback.
+
+Focus on:
+1. 🐛 **Bugs & Logic Errors**: Null checks, edge cases, potential crashes
+2. 🔒 **Security Issues**: SQL injection, XSS, authentication, exposed secrets
+3. ⚡ **Performance**: Inefficient code, memory leaks, slow operations
+4. 📖 **Code Quality**: Readability, naming, complexity, best practices
+5. 🧪 **Testing Needs**: What should be tested, missing test cases
+6. 📚 **Documentation**: Unclear code, missing comments
+
+Format your response:
+- Start with overall assessment (✅ Looks good / ⚠️ Needs attention / 🔴 Critical issues)
+- Group findings by severity:
+  - 🔴 **Critical**: Must fix immediately (security, major bugs)
+  - 🟡 **Important**: Should fix (performance, quality issues)
+  - 🟢 **Suggestions**: Nice to have (style, minor improvements)
+- For each issue:
+  - Mention the file name
+  - Point out the specific problem
+  - Explain WHY it's an issue
+  - Suggest HOW to fix it with code example if helpful
+- End with positive feedback on what's done well
+- Be helpful and constructive, not just critical
+
+Code to review:
+
+{all_code}
+
+Provide your code review:"""
+            
             temperature = 0.3
             max_tokens = 1500
-            print("⚠️  Using default prompt")
         
         print(f"🤖 Analyzing {len(files_content)} files with AI...")
         
-        # Make API call with system + user messages
+        # Make API call
         response = client.chat.completions.create(
             model=os.environ.get('AI_MODEL', 'gpt-4o-mini'),
             messages=[
@@ -124,9 +231,127 @@ def review_code_with_ai(files_content, prompt_config=None):
         
     except Exception as e:
         print(f"❌ Error during AI review: {e}")
+        import traceback
+        traceback.print_exc()
         return f"⚠️ AI review failed: {e}\n\nPlease review manually."
 
-# ... keep validate_ai_review and post_to_github functions ...
+
+def validate_ai_review(review_text):
+    """Check if AI review is actually useful or just hallucinating."""
+    
+    red_flags = []
+    
+    # Check 1: Did it just repeat the prompt?
+    if "Focus on" in review_text and "Bugs & Logic Errors" in review_text:
+        red_flags.append("AI might be repeating instructions")
+    
+    # Check 2: Is it too generic?
+    generic_phrases = [
+        "looks good",
+        "well written",
+        "no issues found",
+        "consider refactoring"
+    ]
+    
+    if any(phrase in review_text.lower() for phrase in generic_phrases):
+        if "Line" not in review_text:
+            red_flags.append("Review too generic - no specific issues cited")
+    
+    # Check 3: Did it reference actual code?
+    if review_text.count('`') < 2:
+        red_flags.append("No code examples/references in review")
+    
+    # Check 4: Is it suspiciously short?
+    if len(review_text) < 200:
+        red_flags.append("Review too short")
+    
+    if red_flags:
+        print("⚠️ QUALITY WARNINGS:")
+        for flag in red_flags:
+            print(f"  - {flag}")
+        return False, red_flags
+    
+    return True, []
+
+
+def post_to_github(review_text, files_reviewed):
+    """Post review comment on GitHub PR."""
+    print_step(3, "Posting Review to GitHub")
+    
+    if not PR_NUMBER:
+        print("⚠️  Not a pull request, skipping GitHub comment")
+        return
+    
+    try:
+        files_list = "\n".join([f"- `{f}`" for f in files_reviewed])
+        
+        comment_body = f"""## 🤖 AI Code Review
+
+### 📊 Files Reviewed
+{files_list}
+
+**Total files:** {len(files_reviewed)}
+
+---
+
+### 🔍 AI Analysis
+
+{review_text}
+
+---
+
+### 💡 About This Review
+This review analyzed the actual code in your changed files (not just the diff). The AI checked for bugs, security issues, performance problems, and code quality.
+
+**Helpful?** React with 👍 or 👎
+
+---
+*🤖 Automated by AI PR Review Agent | [View workflow]({GITHUB_RUN_URL})*"""
+        
+        api_url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}"
+        headers = {
+            'Authorization': f'token {GITHUB_TOKEN}',
+            'Accept': 'application/vnd.github.v3+json'
+        }
+        
+        print("🔍 Checking for existing review...")
+        comments_url = f"{api_url}/issues/{PR_NUMBER}/comments"
+        response = requests.get(comments_url, headers=headers)
+        response.raise_for_status()
+        
+        existing_comment = None
+        for comment in response.json():
+            if '🤖 AI Code Review' in comment.get('body', ''):
+                existing_comment = comment
+                break
+        
+        if existing_comment:
+            print(f"📝 Updating existing review comment")
+            update_url = f"{api_url}/issues/comments/{existing_comment['id']}"
+            response = requests.patch(
+                update_url,
+                headers=headers,
+                json={'body': comment_body}
+            )
+            response.raise_for_status()
+            print("✅ Updated review comment")
+        else:
+            print("📝 Creating new review comment")
+            response = requests.post(
+                comments_url,
+                headers=headers,
+                json={'body': comment_body}
+            )
+            response.raise_for_status()
+            print("✅ Posted review comment")
+        
+        print(f"🔗 View: https://github.com/{REPO_OWNER}/{REPO_NAME}/pull/{PR_NUMBER}")
+        
+    except Exception as e:
+        print(f"❌ Error posting to GitHub: {e}")
+        import traceback
+        traceback.print_exc()
+
 
 def main():
     """Main execution flow."""
@@ -135,12 +360,19 @@ def main():
     print("=" * 60)
     
     # Load prompt configuration
-    prompt_config, prompt_version = load_prompt_config()
+    try:
+        prompt_config, prompt_version = load_prompt_config()
+    except Exception as e:
+        print(f"⚠️  Error loading prompt: {e}")
+        prompt_config, prompt_version = None, 'default'
     
-    # ... your existing validation code ...
+    # Validate environment
+    if not OPENAI_KEY:
+        print("❌ Error: OPENAI_KEY not set")
+        sys.exit(1)
     
-    if not OPENAI_KEY or not GITHUB_TOKEN:
-        print("❌ Missing required environment variables")
+    if not GITHUB_TOKEN:
+        print("❌ Error: GITHUB_TOKEN not set")
         sys.exit(1)
     
     print(f"\n📋 Configuration:")
@@ -150,6 +382,7 @@ def main():
     
     # Get changed files
     changed_files = get_changed_files()
+    
     if not changed_files:
         print("\n⚠️  No code files to review")
         sys.exit(0)
@@ -157,6 +390,7 @@ def main():
     # Read file contents
     print_step(2, "Reading File Contents")
     files_content = {}
+    
     for file_path in changed_files:
         print(f"📖 Reading {file_path}...")
         content = read_file_content(file_path)
@@ -169,7 +403,7 @@ def main():
     
     print(f"✅ Successfully read {len(files_content)} files")
     
-    # Review with AI using versioned prompt
+    # Review with AI
     review = review_code_with_ai(files_content, prompt_config)
     
     if not review:
@@ -188,12 +422,36 @@ def main():
     # Post to GitHub
     post_to_github(review, list(files_content.keys()))
     
-    # Post to Slack (if configured)
-    # ... your existing Slack code ...
+    # Post to Slack
+    if SLACK_WEBHOOK:
+        print("📨 Sending to Slack...")
+        try:
+            slack_text = f"🤖 *AI PR Review Complete* for PR #{PR_NUMBER}\n\n"
+            if not is_valid:
+                slack_text += f"⚠️ *Quality Warning:* {', '.join(red_flags)}\n\n"
+            
+            slack_text += review[:500] + "..." if len(review) > 500 else review
+            
+            response = requests.post(
+                SLACK_WEBHOOK,
+                json={'text': slack_text},
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                print("✅ Report sent to Slack!")
+            else:
+                print(f"⚠️  Slack returned: {response.status_code}")
+                
+        except Exception as e:
+            print(f"⚠️  Failed to send to Slack: {e}")
+    else:
+        print("ℹ️  SLACK_WEBHOOK not configured, skipping Slack notification")
     
     print("\n" + "=" * 60)
     print(f"✅ PR review complete! (Used prompt: {prompt_version})")
     print("=" * 60)
+
 
 if __name__ == '__main__':
     main()
