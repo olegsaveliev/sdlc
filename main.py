@@ -59,6 +59,22 @@ async def read_root():
             font-size: 28px;
             font-weight: 600;
             letter-spacing: -0.5px;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+
+        h1 span {
+            display: inline-block;
+            animation: scrollText 8s linear infinite;
+        }
+
+        @keyframes scrollText {
+            0% {
+                transform: translateX(100%);
+            }
+            100% {
+                transform: translateX(-100%);
+            }
         }
 
         .status {
@@ -258,7 +274,7 @@ async def read_root():
 </head>
 <body>
     <div class="container">
-        <h1>Calculator</h1>
+        <h1><span>Calculator</span></h1>
         <div style="text-align: center;">
             <span class="status">Staging Environment</span>
         </div>
