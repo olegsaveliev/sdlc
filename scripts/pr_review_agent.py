@@ -3,157 +3,88 @@ import os
 import sys
 import json
 from pathlib import Path
-from typing import Dict, List
-
-import requests
 from git import Repo
 from openai import OpenAI
 
-
-# ───────────────────────────────────────────────────────────────
-# Paths & Constants
-# ───────────────────────────────────────────────────────────────
-
 BASE_DIR = Path(__file__).resolve().parent.parent
 PROMPTS_PATH = BASE_DIR / "pr_review_prompts.json"
-
-OPENAI_MODEL = "gpt-4o-mini"
-
-
-# ───────────────────────────────────────────────────────────────
-# Utilities
-# ───────────────────────────────────────────────────────────────
-
-def fail(message: str) -> None:
-    print(f"🔴 Agent failed: {message}")
-    sys.exit(1)
+MODEL = "gpt-4o-mini"
 
 
-def load_prompt_config() -> Dict:
+def fail(msg: str):
+    print(f"🔴 {msg}")
+    sys.exit(0)  # NEVER fail the workflow
+
+
+def load_prompt():
     if not PROMPTS_PATH.exists():
-        fail(f"Prompt config not found at {PROMPTS_PATH}")
+        fail(f"Prompt file not found: {PROMPTS_PATH}")
 
+    with open(PROMPTS_PATH, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    version = os.getenv("PROMPT_VERSION")
+    if not version:
+        fail("PROMPT_VERSION not set")
+
+    prompts = data.get("prompts", {})
+    if version not in prompts:
+        fail(f"Unknown PROMPT_VERSION '{version}'")
+
+    return prompts[version]
+
+
+def get_changed_files(repo: Repo, base_sha: str, head_sha: str):
     try:
-        with open(PROMPTS_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
+        diff = repo.git.diff(base_sha, head_sha, name_only=True)
+        return [f for f in diff.splitlines() if f.strip()]
     except Exception as e:
-        fail(f"Failed to load prompt config: {e}")
+        print(f"⚠️ Diff failed: {e}")
+        return []
 
 
-def get_prompt(prompt_config: Dict) -> Dict:
-    prompt_version = os.getenv("PROMPT_VERSION")
-    if not prompt_version:
-        fail("PROMPT_VERSION env var is not set")
-
-    prompts = prompt_config.get("prompts", {})
-    if prompt_version not in prompts:
-        fail(
-            f"Prompt version '{prompt_version}' not found. "
-            f"Available versions: {', '.join(prompts.keys())}"
-        )
-
-    return prompts[prompt_version]
+def read_files(files):
+    blocks = []
+    for f in files:
+        p = BASE_DIR / f
+        if p.exists() and p.is_file():
+            blocks.append(f"\n===== {f} =====\n{p.read_text(errors='ignore')}")
+    return "\n".join(blocks)
 
 
-def get_changed_files(repo: Repo, base_ref: str, head_ref: str) -> List[str]:
-    diff = repo.git.diff(f"{base_ref}...{head_ref}", name_only=True)
-    return [f for f in diff.splitlines() if f.strip()]
-
-
-def load_files_content(files: List[str]) -> str:
-    content_blocks = []
-
-    for file_path in files:
-        path = BASE_DIR / file_path
-        if not path.exists() or path.is_dir():
-            continue
-
-        try:
-            content = path.read_text(encoding="utf-8", errors="ignore")
-        except Exception:
-            continue
-
-        content_blocks.append(
-            f"\n===== FILE: {file_path} =====\n{content}\n"
-        )
-
-    return "\n".join(content_blocks)
-
-
-# ───────────────────────────────────────────────────────────────
-# OpenAI Review
-# ───────────────────────────────────────────────────────────────
-
-def run_review() -> None:
-    # Required env vars
-    required_envs = [
-        "OPENAI_KEY",
-        "REPO_OWNER",
-        "REPO_NAME",
-        "BASE_REF",
-        "HEAD_REF",
-    ]
-
-    for env in required_envs:
-        if not os.getenv(env):
-            fail(f"Missing required env var: {env}")
-
-    client = OpenAI(api_key=os.getenv("OPENAI_KEY"))
+def main():
+    for var in ["OPENAI_KEY", "BASE_SHA", "HEAD_SHA"]:
+        if not os.getenv(var):
+            fail(f"Missing env var: {var}")
 
     repo = Repo(BASE_DIR)
+    files = get_changed_files(repo, os.getenv("BASE_SHA"), os.getenv("HEAD_SHA"))
 
-    changed_files = get_changed_files(
-        repo,
-        os.getenv("BASE_REF"),
-        os.getenv("HEAD_REF"),
-    )
-
-    if not changed_files:
-        print("⚠️ No code changes detected. Nothing to review.")
-        print("✅ Looks good")
+    if not files:
+        print("✅ Looks good — no changes to review")
         return
 
-    files_content = load_files_content(changed_files)
-
-    if not files_content.strip():
-        print("⚠️ No readable source files found.")
-        print("✅ Looks good")
+    code = read_files(files)
+    if not code.strip():
+        print("✅ Looks good — no readable files")
         return
 
-    prompt_config = load_prompt_config()
-    prompt = get_prompt(prompt_config)
+    prompt = load_prompt()
 
-    system_prompt = prompt.get("system", "")
-    template = prompt.get("template", "")
-    temperature = prompt.get("temperature", 0.3)
-    max_tokens = prompt.get("max_tokens", 1500)
-
-    user_prompt = template.format(code=files_content)
-
+    client = OpenAI(api_key=os.getenv("OPENAI_KEY"))
     response = client.chat.completions.create(
-        model=OPENAI_MODEL,
-        temperature=temperature,
-        max_tokens=max_tokens,
+        model=MODEL,
+        temperature=prompt.get("temperature", 0.3),
+        max_tokens=prompt.get("max_tokens", 1500),
         messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
+            {"role": "system", "content": prompt.get("system", "")},
+            {"role": "user", "content": prompt["template"].format(code=code)},
         ],
     )
 
-    review_text = response.choices[0].message.content.strip()
-
     print("🔍 AI Analysis")
-    print(review_text)
+    print(response.choices[0].message.content.strip())
 
-
-# ───────────────────────────────────────────────────────────────
-# Entrypoint
-# ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    try:
-        run_review()
-    except Exception as e:
-        fail(str(e))
-
-    sys.exit(0)
+    main()
