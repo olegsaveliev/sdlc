@@ -11,9 +11,9 @@ on:
         required: false
       JIRA_API_TOKEN:
         required: false
-      TRACKER_ENDPOINT:           # ← ADD THIS
+      TRACKER_ENDPOINT:
         required: false
-      TRACKER_API_KEY:            # ← ADD THIS
+      TRACKER_API_KEY:
         required: false
 
 jobs:
@@ -141,8 +141,8 @@ jobs:
       - name: 🤖 AI Generation - Generate 5 Regression Tests
         env:
           OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
-          TRACKER_ENDPOINT: ${{ secrets.TRACKER_ENDPOINT }}    # ← ADD
-          TRACKER_API_KEY: ${{ secrets.TRACKER_API_KEY }}      # ← ADD 
+          TRACKER_ENDPOINT: ${{ secrets.TRACKER_ENDPOINT }}
+          TRACKER_API_KEY: ${{ secrets.TRACKER_API_KEY }}
           AGENT_NAME: AUTO_TEST  
         run: |
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -211,7 +211,7 @@ jobs:
           echo ""
 
       # ═══════════════════════════════════════════════════════════
-      # STEP 8: Run Regression Tests
+      # STEP 8: Run Regression Tests (⭐ IMPROVED PASS/FAIL DETECTION)
       # ═══════════════════════════════════════════════════════════
       - name: 🧪 Execution - Run Regression Tests
         id: pytest
@@ -223,13 +223,26 @@ jobs:
           pytest test_ai_generated.py -v --tb=short > /tmp/test_results_regression.txt 2>&1 || true
           cat /tmp/test_results_regression.txt
           
-          # Check if tests passed
-          if grep -q "passed" /tmp/test_results_regression.txt; then
+          # ⭐ IMPROVED: Check if 100% tests passed (no failures)
+          if grep -q "passed" /tmp/test_results_regression.txt && ! grep -q "failed" /tmp/test_results_regression.txt; then
+            # Extract pass count for display
+            PASS_COUNT=$(grep -oP '\d+(?= passed)' /tmp/test_results_regression.txt | head -1)
             echo "status=✅ PASSED" >> $GITHUB_OUTPUT
             echo "status_text=PASSED" >> $GITHUB_OUTPUT
+            echo "pass_count=$PASS_COUNT" >> $GITHUB_OUTPUT
+            echo "fail_count=0" >> $GITHUB_OUTPUT
+            echo ""
+            echo "✅ ALL TESTS PASSED: $PASS_COUNT/$PASS_COUNT tests successful"
           else
+            # Extract pass/fail counts
+            PASS_COUNT=$(grep -oP '\d+(?= passed)' /tmp/test_results_regression.txt | head -1 || echo "0")
+            FAIL_COUNT=$(grep -oP '\d+(?= failed)' /tmp/test_results_regression.txt | head -1 || echo "0")
             echo "status=⚠️ FAILED" >> $GITHUB_OUTPUT
             echo "status_text=FAILED" >> $GITHUB_OUTPUT
+            echo "pass_count=$PASS_COUNT" >> $GITHUB_OUTPUT
+            echo "fail_count=$FAIL_COUNT" >> $GITHUB_OUTPUT
+            echo ""
+            echo "⚠️ TESTS FAILED: $PASS_COUNT passed, $FAIL_COUNT failed"
           fi
           echo ""
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -237,7 +250,7 @@ jobs:
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
       
       # ═══════════════════════════════════════════════════════════
-      # STEP 9: Post Results to PR Comment (GitHub)
+      # STEP 9: Post Results to PR Comment (⭐ IMPROVED WITH COUNTS)
       # ═══════════════════════════════════════════════════════════
       - name: 💬 Post Results to PR
         if: github.event_name == 'pull_request' || github.event.pull_request != null
@@ -251,6 +264,8 @@ jobs:
             const testCount = '${{ steps.results.outputs.test_count }}';
             const expectedCount = '${{ steps.results.outputs.expected_count }}';
             const status = '${{ steps.pytest.outputs.status }}';
+            const passCount = '${{ steps.pytest.outputs.pass_count }}';
+            const failCount = '${{ steps.pytest.outputs.fail_count }}';
             const hasJira = '${{ steps.jira.outputs.has_jira }}';
             const jiraKey = '${{ steps.jira.outputs.jira_key }}';
             
@@ -286,6 +301,14 @@ jobs:
               jiraSection = `\n### 🎫 Jira Integration\n⚠️ No Jira issue detected. Include issue key in branch name (e.g., \`feature/PROJ-123-description\`) for automatic linking.\n`;
             }
             
+            // ⭐ NEW: Test results summary with pass/fail counts
+            let testResultsSummary = '';
+            if (failCount === '0') {
+              testResultsSummary = `- **Tests Passed:** ${passCount}/${passCount} ✅`;
+            } else {
+              testResultsSummary = `- **Tests Passed:** ${passCount}/${Number(passCount) + Number(failCount)}\n- **Tests Failed:** ${failCount} ❌`;
+            }
+            
             const comment = `## 🤖 AI Regression Tests Report
             
             ${status}
@@ -293,6 +316,7 @@ jobs:
             ### 📊 Summary
             - **Source Files Found:** ${filesFound}
             - **Regression Tests Generated:** ${testCount} ${expectedCount === 'true' ? '✅' : '⚠️'}
+            ${testResultsSummary}
             ${countWarning}
             ${jiraSection}
             
@@ -332,8 +356,7 @@ jobs:
             }
       
       # ═══════════════════════════════════════════════════════════
-      # STEP 10: Post Results to Jira Ticket
-      # 🔧 FIXED: Using Python for proper JSON encoding
+      # STEP 10: Post Results to Jira Ticket (No changes needed)
       # ═══════════════════════════════════════════════════════════
       - name: 📝 Post Results to Jira
         if: steps.jira.outputs.has_jira == 'true'
@@ -346,6 +369,8 @@ jobs:
           BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
           STATUS: ${{ steps.pytest.outputs.status_text }}
           TEST_COUNT: ${{ steps.results.outputs.test_count }}
+          PASS_COUNT: ${{ steps.pytest.outputs.pass_count }}
+          FAIL_COUNT: ${{ steps.pytest.outputs.fail_count }}
         run: |
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "STEP 10: Posting results to Jira ticket $JIRA_KEY"
@@ -358,14 +383,12 @@ jobs:
             exit 0
           fi
           
-          # Use Python to properly encode JSON
           python3 << 'PYTHON_SCRIPT'
           import os
           import json
           import requests
           from requests.auth import HTTPBasicAuth
           
-          # Read test results from files
           def read_file(path):
               try:
                   with open(path, 'r') as f:
@@ -377,7 +400,6 @@ jobs:
           test_functions = read_file('/tmp/test_functions_regression.txt')
           test_output = read_file('/tmp/test_results_regression.txt')
           
-          # Get environment variables
           jira_base_url = os.environ['JIRA_BASE_URL']
           jira_email = os.environ['JIRA_USER_EMAIL']
           jira_token = os.environ['JIRA_API_TOKEN']
@@ -386,12 +408,15 @@ jobs:
           branch = os.environ['BRANCH_NAME']
           status = os.environ['STATUS']
           test_count = os.environ['TEST_COUNT']
+          pass_count = os.environ.get('PASS_COUNT', '0')
+          fail_count = os.environ.get('FAIL_COUNT', '0')
           
-          # Truncate long outputs
           if len(test_output) > 3000:
               test_output = test_output[:3000] + "\n\n... (truncated, see GitHub Actions for full output)"
           
-          # Create Jira comment using ADF (Atlassian Document Format)
+          # ⭐ IMPROVED: Include pass/fail counts in Jira
+          test_results_text = f"Tests Passed: {pass_count}, Failed: {fail_count}" if fail_count != '0' else f"All {pass_count} tests passed ✅"
+          
           comment_body = {
               "body": {
                   "type": "doc",
@@ -429,9 +454,7 @@ jobs:
                                   "content": [
                                       {
                                           "type": "paragraph",
-                                          "content": [
-                                              {"type": "text", "text": f"Tests Generated: {test_count}"}
-                                          ]
+                                          "content": [{"type": "text", "text": f"Tests Generated: {test_count}"}]
                                       }
                                   ]
                               },
@@ -440,9 +463,16 @@ jobs:
                                   "content": [
                                       {
                                           "type": "paragraph",
-                                          "content": [
-                                              {"type": "text", "text": f"Status: {status}"}
-                                          ]
+                                          "content": [{"type": "text", "text": f"Status: {status}"}]
+                                      }
+                                  ]
+                              },
+                              {
+                                  "type": "listItem",
+                                  "content": [
+                                      {
+                                          "type": "paragraph",
+                                          "content": [{"type": "text", "text": test_results_text}]
                                       }
                                   ]
                               }
@@ -486,7 +516,6 @@ jobs:
               }
           }
           
-          # Post to Jira
           url = f"{jira_base_url}/rest/api/3/issue/{jira_key}/comment"
           
           print(f"📤 Posting to: {url}")
@@ -505,11 +534,6 @@ jobs:
               else:
                   print(f"❌ Failed to post to Jira (HTTP {response.status_code})")
                   print(f"Response: {response.text}")
-                  print("\n💡 Troubleshooting tips:")
-                  print("   1. Verify Jira credentials are correct")
-                  print(f"   2. Check if issue {jira_key} exists")
-                  print("   3. Ensure API token has permission to comment")
-                  print("   4. Verify JIRA_BASE_URL has no trailing slash")
           except Exception as e:
               print(f"❌ Error posting to Jira: {e}")
           

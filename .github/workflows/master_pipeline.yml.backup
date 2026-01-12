@@ -1,0 +1,134 @@
+name: 🚀 Master Delivery Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+    paths-ignore:
+      - '.github/workflows/**'
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+      - 'LICENSE'
+      - '.editorconfig'
+      - 'PROJECT_GUIDE*.md'
+      - 'PR_APPROVAL*.md'
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:  # Manual trigger
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  # ═══════════════════════════════════════════════════════════
+  # STEP 1: AI Code Review (runs first for quick feedback)
+  # ═══════════════════════════════════════════════════════════
+  call-pr-review:
+    if: github.event_name == 'pull_request'
+    uses: ./.github/workflows/pr_review.yml
+    permissions:
+      contents: read
+      pull-requests: write
+    secrets:
+      OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
+      TRACKER_ENDPOINT: ${{ secrets.TRACKER_ENDPOINT }}
+      TRACKER_API_KEY: ${{ secrets.TRACKER_API_KEY }}
+      SLACK_PR_REVIEW: ${{ secrets.SLACK_PR_REVIEW }}
+
+  # ═══════════════════════════════════════════════════════════
+  # STEP 2: Run Unit Tests (ONLY on Pull Requests)
+  # ═══════════════════════════════════════════════════════════
+  call-quality:
+    if: github.event_name == 'pull_request'
+    uses: ./.github/workflows/unit_tests.yml
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    secrets:
+      OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
+      TRACKER_ENDPOINT: ${{ secrets.TRACKER_ENDPOINT }}
+      TRACKER_API_KEY: ${{ secrets.TRACKER_API_KEY }}
+
+  # ═══════════════════════════════════════════════════════════
+  # STEP 3: Run Regression Tests (ONLY on Pull Requests)
+  # ═══════════════════════════════════════════════════════════
+  call-ai-autotest:
+    needs: call-quality
+    if: github.event_name == 'pull_request'
+    uses: ./.github/workflows/auto_test.yml
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    secrets:
+      OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
+      JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+      JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+      JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+      TRACKER_ENDPOINT: ${{ secrets.TRACKER_ENDPOINT }}
+      TRACKER_API_KEY: ${{ secrets.TRACKER_API_KEY }}
+      
+  # ═══════════════════════════════════════════════════════════
+  # ⭐ NEW STEP 4: PR Approval Decision (ONLY on Pull Requests)
+  # ═══════════════════════════════════════════════════════════
+  pr-approval-check:
+    needs: [call-pr-review, call-quality, call-ai-autotest]
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    outputs:
+      auto_approve: ${{ steps.approval.outputs.auto_approve }}
+      confidence: ${{ steps.approval.outputs.confidence }}
+      reason: ${{ steps.approval.outputs.reason }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install dependencies
+        run: pip install requests
+      
+      - name: 🎯 Run PR Approval Checker
+        id: approval
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          SLACK_WEBHOOK: ${{ secrets.SLACK_PR_REVIEW }}
+        run: python scripts/pr_approval_checker.py
+      
+      - name: 📊 Display Decision
+        run: |
+          echo "════════════════════════════════════════════════════"
+          echo "PR APPROVAL DECISION"
+          echo "════════════════════════════════════════════════════"
+          echo "Auto-approve: ${{ steps.approval.outputs.auto_approve }}"
+          echo "Confidence: ${{ steps.approval.outputs.confidence }}"
+          echo "Reason: ${{ steps.approval.outputs.reason }}"
+          echo "════════════════════════════════════════════════════"
+
+
+  # ═══════════════════════════════════════════════════════════
+  # STEP 5: Deploy to Staging (ONLY after merge to main)
+  # ═══════════════════════════════════════════════════════════
+  call-staging:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/staging_release.yml
+    secrets:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: us-east-1
+      EC2_HOST: ${{ secrets.EC2_HOST }}
+      EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
+      EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
