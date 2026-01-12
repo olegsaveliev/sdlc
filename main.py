@@ -65,7 +65,12 @@ async def read_root():
 
         h1 span {
             display: inline-block;
-            animation: scrollText 8s linear infinite;
+            animation: scrollText 8s linear infinite, sparkle 2s ease-in-out infinite;
+            background: linear-gradient(45deg, #ff0080, #ff8c00, #ffd700, #00ff00, #0080ff, #8000ff, #ff0080);
+            background-size: 400% 400%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
 
         @keyframes scrollText {
@@ -74,6 +79,17 @@ async def read_root():
             }
             100% {
                 transform: translateX(-100%);
+            }
+        }
+
+        @keyframes sparkle {
+            0%, 100% {
+                background-position: 0% 50%;
+                filter: brightness(1);
+            }
+            50% {
+                background-position: 100% 50%;
+                filter: brightness(1.3);
             }
         }
 
