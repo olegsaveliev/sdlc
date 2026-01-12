@@ -1,0 +1,30 @@
+{
+  "version": "2.0",
+  "active": "v2_detailed",
+  "prompts": {
+    "v1_basic": {
+      "name": "Basic Review",
+      "description": "Original simple prompt",
+      "temperature": 0.3,
+      "max_tokens": 1500,
+      "system": "You are an expert code reviewer.",
+      "template": "Review this code:\n\n{code}\n\nProvide feedback on bugs, security, and quality."
+    },
+    "v2_detailed": {
+      "name": "Detailed Review with Structure",
+      "description": "Enhanced prompt with structured output",
+      "temperature": 0.3,
+      "max_tokens": 1500,
+      "system": "You are a senior software engineer with 10 years experience reviewing Python code for production systems.",
+      "template": "Review these code files and provide constructive feedback.\n\nFocus on:\n1. 🐛 **Bugs & Logic Errors**: Null checks, edge cases, potential crashes\n2. 🔒 **Security Issues**: SQL injection, XSS, authentication, exposed secrets\n3. ⚡ **Performance**: Inefficient code, memory leaks, slow operations\n4. 📖 **Code Quality**: Readability, naming, complexity, best practices\n5. 🧪 **Testing Needs**: What should be tested, missing test cases\n6. 📚 **Documentation**: Unclear code, missing comments\n\nFormat your response:\n- Start with overall assessment (✅ Looks good / ⚠️ Needs attention / 🔴 Critical issues)\n- Group findings by severity:\n  - 🔴 **Critical**: Must fix immediately (security, major bugs)\n  - 🟡 **Important**: Should fix (performance, quality issues)\n  - 🟢 **Suggestions**: Nice to have (style, minor improvements)\n- For each issue:\n  - Mention the file name\n  - Point out the specific problem\n  - Explain WHY it's an issue\n  - Suggest HOW to fix it with code example if helpful\n- End with positive feedback on what's done well\n- Be helpful and constructive, not just critical\n\nCode to review:\n\n{code}\n\nProvide your code review:"
+    },
+    "v3_strict": {
+      "name": "Strict Security Focus",
+      "description": "Heavy emphasis on security issues",
+      "temperature": 0.2,
+      "max_tokens": 2000,
+      "system": "You are a senior security engineer specializing in code review for production systems.",
+      "template": "Security-focused review...\n\n{code}"
+    }
+  }
+}

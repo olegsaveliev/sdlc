@@ -55,6 +55,7 @@ jobs:
           REPO_NAME: ${{ github.event.repository.name }}
           BASE_REF: ${{ github.base_ref }}
           HEAD_REF: ${{ github.head_ref }}
+          PROMPT_VERSION: v2_detailed
           GITHUB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           python scripts/pr_review_agent.py > /tmp/pr_review_output.txt 2>&1
