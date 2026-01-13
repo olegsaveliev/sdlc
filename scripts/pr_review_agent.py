@@ -116,6 +116,14 @@ def review_code_with_ai(files_content):
             code_sections.append(f"### File: {file_path}\n```\n{content}\n```")
         
         all_code = "\n\n".join(code_sections)
+
+    def load_prompt(agent_name: str, version: str):
+    """
+    Loads a versioned prompt YAML file.
+    """
+    prompt_path = f"prompts/{agent_name.lower()}/{version}.yaml"
+    with open(prompt_path, "r") as f:
+        return yaml.safe_load(f)
 #promt start        
        prompt_config = load_prompt("pr_review", PROMPT_VERSION)
 
