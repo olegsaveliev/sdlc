@@ -128,7 +128,7 @@ def review_code_with_ai(files_content):
        prompt_config = load_prompt("pr_review", PROMPT_VERSION)
 
 system_prompt = prompt_config["system"]
-user_prompt = prompt_config["user"]
+user_prompt = prompt_config["user"].replace("{all_code}", all_code)
 
 model = prompt_config.get("model", "gpt-4o-mini")
 temperature = prompt_config.get("temperature", 0.2)
