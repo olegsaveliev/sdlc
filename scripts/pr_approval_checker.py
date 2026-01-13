@@ -161,7 +161,7 @@ def check_if_auto_approvable(pr_data: Dict[str, Any]) -> Dict[str, Any]:
         print(f"✅ Low-risk files: YES (all {len(changed_files)} files are docs/tests/config)")
     
     # ─────────────────────────────────────────────────────────
-    # Criterion 3: AI review passed (STRICT - must have approval, no critical)
+    # Criterion 3: AI review passed (VERY STRICT - checks actual content)
     # ─────────────────────────────────────────────────────────
     ai_review_passed = False
     if ai_review:
@@ -174,14 +174,44 @@ def check_if_auto_approvable(pr_data: Dict[str, Any]) -> Dict[str, Any]:
             "looks good" in ai_review_lower
         )
         
-        # Check for critical issues (must NOT be present)
-        has_critical = (
-            "🔴" in ai_review or 
-            "critical" in ai_review_lower or
-            "must fix" in ai_review_lower or
-            "blocking" in ai_review_lower or
-            "security risk" in ai_review_lower
-        )
+        # Check for critical issues - MULTIPLE METHODS
+        has_critical = False
+        
+        # Method 1: Look for red circle emoji
+        if "🔴" in ai_review:
+            has_critical = True
+        
+        # Method 2: Look for "critical issues" header/section (case-insensitive)
+        if "critical issue" in ai_review_lower:
+            has_critical = True
+        
+        # Method 3: Look for "needs attention" assessment
+        if "needs attention" in ai_review_lower or "⚠️ needs" in ai_review_lower:
+            has_critical = True
+        
+        # Method 4: Look for explicit blocking keywords
+        blocking_keywords = [
+            "must fix",
+            "blocking",
+            "security risk",
+            "security vulnerability",
+            "crash",
+            "data loss",
+            "authentication bypass"
+        ]
+        if any(keyword in ai_review_lower for keyword in blocking_keywords):
+            has_critical = True
+        
+        # Method 5: Check assessment line specifically
+        if "overall assessment" in ai_review_lower:
+            # Extract assessment line
+            lines = ai_review.split('\n')
+            for line in lines:
+                if "overall assessment" in line.lower():
+                    # If assessment is not ✅, mark as critical
+                    if "⚠️" in line or "🔴" in line or "needs" in line.lower():
+                        has_critical = True
+                    break
         
         ai_review_passed = has_approval and not has_critical
         
@@ -190,7 +220,14 @@ def check_if_auto_approvable(pr_data: Dict[str, Any]) -> Dict[str, Any]:
         print(f"   Has approval markers: {has_approval}")
         print(f"   Has critical issues: {has_critical}")
         if has_critical:
-            print(f"   ⚠️  BLOCKED: Critical issues found - human review required")
+            print(f"   ⚠️  BLOCKED: Critical issues detected - human review required")
+            # Show first critical indicator found
+            if "🔴" in ai_review:
+                print(f"      Reason: Found 🔴 emoji")
+            elif "critical issue" in ai_review_lower:
+                print(f"      Reason: Found 'Critical Issues' section")
+            elif "needs attention" in ai_review_lower:
+                print(f"      Reason: Assessment says 'Needs attention'")
     else:
         print(f"❌ AI review passed: NO (no AI review found)")
     
