@@ -1,4 +1,4 @@
-#test
+####test
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -162,37 +162,33 @@ async def read_root():
             letter-spacing: -0.2px;
         }
 
-        .btn-add {
+        .btn-add, .btn-subtract, .btn-multiply {
+            background: #e8e8ed;
+            color: #1d1d1f;
+        }
+
+        .btn-add:hover, .btn-subtract:hover, .btn-multiply:hover {
+            background: #d2d2d7;
+            transform: translateY(-1px);
+        }
+
+        .btn-add.active, .btn-subtract.active, .btn-multiply.active {
             background: #0071e3;
             color: white;
         }
 
-        .btn-add:hover {
-            background: #0077ed;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(0, 113, 227, 0.25);
-        }
-
-        .btn-subtract {
-            background: #0071e3;
+        .btn-equals {
+            background: #34c759;
             color: white;
+            grid-column: span 3;
+            font-size: 18px;
+            font-weight: 600;
         }
 
-        .btn-subtract:hover {
-            background: #0077ed;
+        .btn-equals:hover {
+            background: #30b350;
             transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(0, 113, 227, 0.25);
-        }
-
-        .btn-multiply {
-            background: #0071e3;
-            color: white;
-        }
-
-        .btn-multiply:hover {
-            background: #0077ed;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(0, 113, 227, 0.25);
+            box-shadow: 0 4px 12px rgba(52, 199, 89, 0.35);
         }
 
         .btn-reset {
@@ -204,6 +200,37 @@ async def read_root():
         .btn-reset:hover {
             background: #e8e8ed;
             transform: translateY(-1px);
+        }
+
+        .salute-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        .salute-particle {
+            position: absolute;
+            font-size: 24px;
+            animation: salute-burst 1s ease-out forwards;
+            opacity: 0;
+        }
+
+        @keyframes salute-burst {
+            0% {
+                opacity: 1;
+                transform: translate(0, 0) scale(0);
+            }
+            50% {
+                opacity: 1;
+            }
+            100% {
+                opacity: 0;
+                transform: translate(var(--tx), var(--ty)) scale(1) rotate(var(--rotate));
+            }
         }
 
         .result {
@@ -308,9 +335,10 @@ async def read_root():
             </div>
 
             <div class="button-group">
-                <button class="btn-add" onclick="calculate('add')">Add</button>
-                <button class="btn-subtract" onclick="calculate('subtract')">Subtract</button>
-                <button class="btn-multiply" onclick="calculate('multiply')">Multiply</button>
+                <button class="btn-add" onclick="selectOperation('add')">+</button>
+                <button class="btn-subtract" onclick="selectOperation('subtract')">-</button>
+                <button class="btn-multiply" onclick="selectOperation('multiply')">×</button>
+                <button class="btn-equals" onclick="calculateResult()">=</button>
                 <button class="btn-reset" onclick="reset()">Reset</button>
             </div>
 
@@ -340,19 +368,78 @@ async def read_root():
     <script>
         // Set timestamp
         document.getElementById('timestamp').textContent = new Date().toLocaleString();
-        
-        async function calculate(operation) {
+
+        // Track selected operation
+        let selectedOperation = null;
+
+        function selectOperation(operation) {
+            selectedOperation = operation;
+
+            // Remove active class from all operation buttons
+            document.querySelectorAll('.btn-add, .btn-subtract, .btn-multiply').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // Add active class to selected button
+            const buttonClass = `.btn-${operation}`;
+            document.querySelector(buttonClass).classList.add('active');
+        }
+
+        function createSaluteAnimation(x, y) {
+            const container = document.createElement('div');
+            container.className = 'salute-container';
+            document.body.appendChild(container);
+
+            const emojis = ['🎉', '✨', '⭐', '🌟', '💫', '🎊'];
+            const particleCount = 12;
+
+            for (let i = 0; i < particleCount; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'salute-particle';
+                particle.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+
+                const angle = (Math.PI * 2 * i) / particleCount;
+                const distance = 100 + Math.random() * 50;
+                const tx = Math.cos(angle) * distance;
+                const ty = Math.sin(angle) * distance;
+                const rotate = Math.random() * 360;
+
+                particle.style.left = x + 'px';
+                particle.style.top = y + 'px';
+                particle.style.setProperty('--tx', tx + 'px');
+                particle.style.setProperty('--ty', ty + 'px');
+                particle.style.setProperty('--rotate', rotate + 'deg');
+
+                container.appendChild(particle);
+            }
+
+            setTimeout(() => {
+                container.remove();
+            }, 1000);
+        }
+
+        async function calculateResult() {
+            if (!selectedOperation) {
+                const error = document.getElementById('error');
+                error.textContent = 'Please select an operation (+, -, ×)';
+                error.style.display = 'block';
+                setTimeout(() => {
+                    error.style.display = 'none';
+                }, 2000);
+                return;
+            }
+
             const num1 = parseFloat(document.getElementById('num1').value);
             const num2 = parseFloat(document.getElementById('num2').value);
             const loading = document.getElementById('loading');
             const error = document.getElementById('error');
             const resultValue = document.getElementById('resultValue');
-            
+
             // Reset states
             loading.style.display = 'block';
             error.style.display = 'none';
             resultValue.textContent = '-';
-            
+
             // Validate inputs
             if (isNaN(num1) || isNaN(num2)) {
                 error.textContent = 'Please enter valid numbers';
@@ -360,19 +447,26 @@ async def read_root():
                 loading.style.display = 'none';
                 return;
             }
-            
+
             try {
-                const response = await fetch(`/${operation}?a=${num1}&b=${num2}`);
+                const response = await fetch(`/${selectedOperation}?a=${num1}&b=${num2}`);
                 const data = await response.json();
-                
+
                 if (response.ok) {
                     resultValue.textContent = data.result;
-                    
+
                     // Animate result
                     resultValue.style.transform = 'scale(1.2)';
                     setTimeout(() => {
                         resultValue.style.transform = 'scale(1)';
                     }, 200);
+
+                    // Trigger salute animation
+                    const equalsButton = document.querySelector('.btn-equals');
+                    const rect = equalsButton.getBoundingClientRect();
+                    const centerX = rect.left + rect.width / 2;
+                    const centerY = rect.top + rect.height / 2;
+                    createSaluteAnimation(centerX, centerY);
                 } else {
                     error.textContent = data.detail || 'Calculation failed';
                     error.style.display = 'block';
@@ -384,7 +478,7 @@ async def read_root():
                 loading.style.display = 'none';
             }
         }
-        
+
         function reset() {
             const resultValue = document.getElementById('resultValue');
             const error = document.getElementById('error');
@@ -398,12 +492,18 @@ async def read_root():
             resultValue.textContent = 0;
             error.style.display = 'none';
             loading.style.display = 'none';
+
+            // Reset selected operation
+            selectedOperation = null;
+            document.querySelectorAll('.btn-add, .btn-subtract, .btn-multiply').forEach(btn => {
+                btn.classList.remove('active');
+            });
         }
 
         // Allow Enter key to trigger calculation
         document.getElementById('num2').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
-                calculate('add');
+                calculateResult();
             }
         });
     </script>
