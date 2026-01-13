@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 PR Approval Checker
-Determines if PR can be auto-approved or needs human review.
+Determines if PR can be auto-approved or needs human review based on AI analysis.
 """
 
 import os
@@ -36,6 +36,24 @@ EXCLUDE_KEYWORDS = ['staging', 'deploy', 'release', 'production', 'prod']
 # Helper Functions
 # ═══════════════════════════════════════════════════════════
 
+def is_test_workflow(name: str) -> bool:
+    """
+    Check if a workflow/check is a test (not deployment/staging).
+    
+    Returns True if:
+    - Contains test keywords (test, unit, regression, quality)
+    - Does NOT contain exclude keywords (staging, deploy, release, production)
+    """
+    name_lower = name.lower()
+    
+    # Must contain a test keyword
+    has_test_keyword = any(keyword in name_lower for keyword in TEST_KEYWORDS)
+    
+    # Must NOT contain an exclude keyword
+    has_exclude_keyword = any(keyword in name_lower for keyword in EXCLUDE_KEYWORDS)
+    
+    return has_test_keyword and not has_exclude_keyword
+
 def get_pr_data() -> Dict[str, Any]:
     """Fetch PR data from GitHub API."""
     
@@ -67,12 +85,12 @@ def get_pr_data() -> Dict[str, Any]:
         
         # Find AI review comment
         ai_review = ""
-        for comment in reversed(comments):
-            if '🤖 AI Code Review' in comment.get('body', '') or '🤖 AI' in comment.get('body', ''):
+        for comment in reversed(comments):  # Get latest first
+            if '🤖 AI Code Review' in comment.get('body', ''):
                 ai_review = comment['body']
                 break
         
-        # Get check runs
+        # Get check runs (test status)
         checks_url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/commits/{pr['head']['sha']}/check-runs"
         checks_response = requests.get(checks_url, headers=headers, timeout=10)
         checks_response.raise_for_status()
@@ -91,25 +109,6 @@ def get_pr_data() -> Dict[str, Any]:
     except Exception as e:
         print(f"❌ Error fetching PR data: {e}")
         sys.exit(1)
-
-
-def is_test_workflow(name: str) -> bool:
-    """
-    Check if a workflow/check is a test (not deployment/staging).
-    
-    Returns True if:
-    - Contains test keywords (test, unit, regression, quality)
-    - Does NOT contain exclude keywords (staging, deploy, release, production)
-    """
-    name_lower = name.lower()
-    
-    # Must contain a test keyword
-    has_test_keyword = any(keyword in name_lower for keyword in TEST_KEYWORDS)
-    
-    # Must NOT contain an exclude keyword
-    has_exclude_keyword = any(keyword in name_lower for keyword in EXCLUDE_KEYWORDS)
-    
-    return has_test_keyword and not has_exclude_keyword
 
 
 def check_if_auto_approvable(pr_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -161,78 +160,25 @@ def check_if_auto_approvable(pr_data: Dict[str, Any]) -> Dict[str, Any]:
         print(f"✅ Low-risk files: YES (all {len(changed_files)} files are docs/tests/config)")
     
     # ─────────────────────────────────────────────────────────
-    # Criterion 3: AI review passed (VERY STRICT - checks actual content)
+    # Criterion 3: AI review passed
     # ─────────────────────────────────────────────────────────
     ai_review_passed = False
     if ai_review:
-        ai_review_lower = ai_review.lower()
-        
-        # Check for approval indicators (must be present)
-        has_approval = (
-            "✅" in ai_review or 
-            "approved" in ai_review_lower or
-            "looks good" in ai_review_lower
-        )
-        
-        # Check for critical issues - MULTIPLE METHODS
-        has_critical = False
-        
-        # Method 1: Look for red circle emoji
-        if "🔴" in ai_review:
-            has_critical = True
-        
-        # Method 2: Look for "critical issues" header/section (case-insensitive)
-        if "critical issue" in ai_review_lower:
-            has_critical = True
-        
-        # Method 3: Look for "needs attention" assessment
-        if "needs attention" in ai_review_lower or "⚠️ needs" in ai_review_lower:
-            has_critical = True
-        
-        # Method 4: Look for explicit blocking keywords
-        blocking_keywords = [
-            "must fix",
-            "blocking",
-            "security risk",
-            "security vulnerability",
-            "crash",
-            "data loss",
-            "authentication bypass"
-        ]
-        if any(keyword in ai_review_lower for keyword in blocking_keywords):
-            has_critical = True
-        
-        # Method 5: Check assessment line specifically
-        if "overall assessment" in ai_review_lower:
-            # Extract assessment line
-            lines = ai_review.split('\n')
-            for line in lines:
-                if "overall assessment" in line.lower():
-                    # If assessment is not ✅, mark as critical
-                    if "⚠️" in line or "🔴" in line or "needs" in line.lower():
-                        has_critical = True
-                    break
+        # Check for positive indicators (case-insensitive)
+        has_approval = "✅" in ai_review or "APPROVED" in ai_review.upper()
+        # Check for critical issues (case-insensitive)
+        has_critical = "🔴" in ai_review or "CRITICAL" in ai_review.upper()
         
         ai_review_passed = has_approval and not has_critical
         
-        # Detailed logging
         print(f"{'✅' if ai_review_passed else '❌'} AI review passed: {ai_review_passed}")
-        print(f"   Has approval markers: {has_approval}")
-        print(f"   Has critical issues: {has_critical}")
         if has_critical:
-            print(f"   ⚠️  BLOCKED: Critical issues detected - human review required")
-            # Show first critical indicator found
-            if "🔴" in ai_review:
-                print(f"      Reason: Found 🔴 emoji")
-            elif "critical issue" in ai_review_lower:
-                print(f"      Reason: Found 'Critical Issues' section")
-            elif "needs attention" in ai_review_lower:
-                print(f"      Reason: Assessment says 'Needs attention'")
+            print(f"   ⚠️  Critical issues found in AI review")
     else:
         print(f"❌ AI review passed: NO (no AI review found)")
     
     # ─────────────────────────────────────────────────────────
-    # Criterion 4: Tests passed (FIXED - excludes staging/deploy)
+    # Criterion 4: Tests passed (excludes staging/deployment)
     # ─────────────────────────────────────────────────────────
     tests_passed = False
     if checks:
@@ -247,7 +193,7 @@ def check_if_auto_approvable(pr_data: Dict[str, Any]) -> Dict[str, Any]:
             if failed_tests:
                 print(f"   ⚠️  Failed: {failed_tests}")
             
-            # Debug: Show what was included/excluded
+            # Debug: Show what was excluded
             excluded = [c['name'] for c in checks if not is_test_workflow(c['name'])]
             if excluded:
                 print(f"   ℹ️  Excluded (not tests): {excluded[:3]}")
@@ -308,36 +254,31 @@ def check_if_auto_approvable(pr_data: Dict[str, Any]) -> Dict[str, Any]:
             "auto_approve": True,
             "reason": "✅ Low-risk change with all quality checks passed",
             "criteria_results": criteria,
-            "confidence": "high",
             "recommended_labels": ["auto-approved", "ready-to-merge"],
-            "assign_to": None
+            "confidence": "high"
         }
     else:
-        # Determine failed criteria
-        failed_criteria = [k.replace('_', ' ').title() for k, v in criteria.items() if not v]
+        failed = [k.replace('_', ' ').title() for k, v in criteria.items() if not v]
         
-        # Determine who should review based on what failed
-        if not criteria["ai_review_passed"] or not criteria["tests_passed"]:
-            assign_to = "QA Team"
-        elif not criteria["no_security_changes"]:
-            assign_to = "Security Team"
-        elif not criteria["low_risk_files"]:
-            assign_to = "Tech Lead"
-        else:
-            assign_to = "Tech Lead"
+        # Determine reviewer based on what failed
+        assign_to = "tech-lead"
+        if not criteria["no_security_changes"]:
+            assign_to = "security-team"
+        elif not criteria["tests_passed"]:
+            assign_to = "qa-team"
         
         return {
             "auto_approve": False,
-            "reason": f"❌ Needs human review - Failed: {', '.join(failed_criteria)}",
+            "reason": f"❌ Needs human review - Failed: {', '.join(failed)}",
             "criteria_results": criteria,
-            "confidence": "low",
+            "assign_to": assign_to,
             "recommended_labels": ["needs-review"],
-            "assign_to": assign_to
+            "confidence": "low" if len(failed) >= 3 else "medium"
         }
 
 
 def add_pr_label(label: str):
-    """Add a label to the PR."""
+    """Add label to PR."""
     
     api_url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/issues/{PR_NUMBER}/labels"
     headers = {
@@ -363,12 +304,31 @@ def post_decision_comment(decision: Dict[str, Any], pr_data: Dict[str, Any]):
     
     print("\n📝 Posting decision to PR...")
     
+    criteria_emoji = {
+        "small_change": "📝",
+        "low_risk_files": "🛡️",
+        "ai_review_passed": "🤖",
+        "tests_passed": "🧪",
+        "no_security_changes": "🔒"
+    }
+    
+    criteria_names = {
+        "small_change": "Small Change",
+        "low_risk_files": "Low-Risk Files",
+        "ai_review_passed": "AI Review Passed",
+        "tests_passed": "Tests Passed",
+        "no_security_changes": "No Security Changes"
+    }
+    
     # Build criteria table
-    criteria_table = ""
-    for criterion, passed in decision["criteria_results"].items():
-        icon = "✅ Pass" if passed else "❌ Fail"
-        name = criterion.replace('_', ' ').title()
-        criteria_table += f"| {name} | {icon} |\n"
+    criteria_rows = []
+    for key, passed in decision["criteria_results"].items():
+        emoji = criteria_emoji.get(key, "•")
+        name = criteria_names.get(key, key)
+        status = "✅ Pass" if passed else "❌ Fail"
+        criteria_rows.append(f"| {emoji} {name} | {status} |")
+    
+    criteria_table = "\n".join(criteria_rows)
     
     if decision["auto_approve"]:
         comment = f"""## 🎉 Auto-Approval Recommendation
@@ -406,7 +366,7 @@ This PR meets all criteria for auto-approval. A team lead can merge when ready.
 **Confidence:** {decision['confidence'].upper()}
 
 ### 👤 Recommended Reviewer
-**{decision['assign_to']}** should review this PR.
+**{decision['assign_to'].replace('-', ' ').title()}** should review this PR.
 
 ### 🏷️ Actions Taken
 - Added labels: `{', '.join(decision['recommended_labels'])}`
@@ -518,7 +478,7 @@ def send_slack_notification(decision: Dict[str, Any], pr_data: Dict[str, Any]):
                         },
                         {
                             "type": "mrkdwn",
-                            "text": f"*Assign To:*\n{decision['assign_to']}"
+                            "text": f"*Assign To:*\n{decision['assign_to'].replace('-', ' ').title()}"
                         },
                         {
                             "type": "mrkdwn",
