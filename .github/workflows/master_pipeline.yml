@@ -77,7 +77,7 @@ jobs:
   # ═══════════════════════════════════════════════════════════
   pr-approval-check:
     needs: [call-quality, call-pr-review, call-ai-autotest-pr]  # ← WAITS for all previous jobs
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && (success() || failure())  
     runs-on: ubuntu-latest
     permissions:
       contents: read
