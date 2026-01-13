@@ -102,39 +102,61 @@ def read_file_content(file_path):
         return None
 
 
-def review_code_with_ai(files_content):
-    """Send code to OpenAI for review."""
-    print_step(2, "AI Code Review")
-    
-    try:
-        client = OpenAI(api_key=OPENAI_KEY)
-        client = track_openai(client)
-        
-        # Build code content string
-        code_sections = []
-        for file_path, content in files_content.items():
-            code_sections.append(f"### File: {file_path}\n```\n{content}\n```")
-        
-        all_code = "\n\n".join(code_sections)
-
-    def load_prompt(agent_name: str, version: str):
+def load_prompt(agent_name: str, version: str):
     """
     Loads a versioned prompt YAML file.
     """
-    prompt_path = f"prompts/{agent_name.lower()}/{version}.yaml"
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    REPO_ROOT = os.path.abspath(os.path.join(BASE_DIR, ".."))
+
+    prompt_path = os.path.join(
+        REPO_ROOT,
+        "prompts",
+        agent_name.lower(),
+        f"{version}.yaml"
+    )
+
+    if not os.path.exists(prompt_path):
+        raise FileNotFoundError(f"Prompt not found: {prompt_path}")
+
     with open(prompt_path, "r") as f:
         return yaml.safe_load(f)
-#promt start        
-       prompt_config = load_prompt("pr_review", PROMPT_VERSION)
 
-system_prompt = prompt_config["system"]
-user_prompt = prompt_config["user"].replace("{all_code}", all_code)
 
-model = prompt_config.get("model", "gpt-4o-mini")
-temperature = prompt_config.get("temperature", 0.2)
+def review_code_with_ai(files_content):
+    """Send code to OpenAI for review."""
+    print_step(2, "AI Code Review")
 
-print(f"🧠 Prompt Version: {PROMPT_VERSION}")
-# prompt end
+    try:
+        client = OpenAI(api_key=OPENAI_KEY)
+        client = track_openai(client)
+
+        # Build code content string
+        code_sections = []
+        for file_path, content in files_content.items():
+            code_sections.append(
+                f"### File: {file_path}\n```\n{content}\n```"
+            )
+
+        all_code = "\n\n".join(code_sections)
+
+        # ---- PROMPT START ----
+        prompt_config = load_prompt("pr_review", PROMPT_VERSION)
+
+        system_prompt = prompt_config["system"]
+        user_prompt = prompt_config["user"].replace("{all_code}", all_code)
+
+        model = prompt_config.get("model", "gpt-4o-mini")
+        temperature = prompt_config.get("temperature", 0.2)
+
+        print(f"🧠 Prompt Version: {PROMPT_VERSION}")
+        # ---- PROMPT END ----
+
+        # (Your OpenAI call continues here unchanged)
+
+    except Exception as e:
+        print(f"❌ AI review failed: {e}")
+        raise
         
         print(f"🤖 Analyzing {len(files_content)} files with AI...")
         
