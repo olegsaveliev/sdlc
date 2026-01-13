@@ -1,0 +1,152 @@
+name: 🚀 Master Delivery Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+    paths-ignore:
+      - '.github/workflows/**'
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+      - 'LICENSE'
+      - '.editorconfig'
+      - 'PROJECT_GUIDE*.md'
+      - 'PR_APPROVAL*.md'
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:  # Manual trigger
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  # ═══════════════════════════════════════════════════════════
+  # STEP 1: Unit Tests (RUNS FIRST - on PRs only)
+  # ═══════════════════════════════════════════════════════════
+  call-quality:
+    if: github.event_name == 'pull_request'
+    uses: ./.github/workflows/unit_tests.yml
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    secrets:
+      OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
+      TRACKER_ENDPOINT: ${{ secrets.TRACKER_ENDPOINT }}
+      TRACKER_API_KEY: ${{ secrets.TRACKER_API_KEY }}
+
+  # ═══════════════════════════════════════════════════════════
+  # STEP 2: AI Code Review (RUNS AFTER unit tests - on PRs only)
+  # ═══════════════════════════════════════════════════════════
+  call-pr-review:
+    needs: call-quality  # ← WAITS for unit tests to finish
+    if: github.event_name == 'pull_request'
+    uses: ./.github/workflows/pr_review.yml
+    permissions:
+      contents: read
+      pull-requests: write
+    secrets:
+      OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
+      TRACKER_ENDPOINT: ${{ secrets.TRACKER_ENDPOINT }}
+      TRACKER_API_KEY: ${{ secrets.TRACKER_API_KEY }}
+      SLACK_PR_REVIEW: ${{ secrets.SLACK_PR_REVIEW }}
+
+  # ═══════════════════════════════════════════════════════════
+  # STEP 3: Regression Tests (RUNS AFTER PR review - on PRs only)
+  # ═══════════════════════════════════════════════════════════
+  call-ai-autotest-pr:
+    needs: call-pr-review  # ← WAITS for PR review to finish
+    if: github.event_name == 'pull_request'
+    uses: ./.github/workflows/auto_test.yml
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    secrets:
+      OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
+      JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+      JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+      JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+      TRACKER_ENDPOINT: ${{ secrets.TRACKER_ENDPOINT }}
+      TRACKER_API_KEY: ${{ secrets.TRACKER_API_KEY }}
+      
+  # ═══════════════════════════════════════════════════════════
+  # STEP 4: PR Approval Decision (RUNS AFTER all tests - on PRs only)
+  # ═══════════════════════════════════════════════════════════
+  pr-approval-check:
+    needs: [call-quality, call-pr-review, call-ai-autotest-pr]  # ← WAITS for all previous jobs
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    outputs:
+      auto_approve: ${{ steps.approval.outputs.auto_approve }}
+      confidence: ${{ steps.approval.outputs.confidence }}
+      reason: ${{ steps.approval.outputs.reason }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install dependencies
+        run: pip install requests
+      
+      - name: 🎯 Run PR Approval Checker
+        id: approval
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          SLACK_WEBHOOK: ${{ secrets.SLACK_PR_REVIEW }}
+        run: python scripts/pr_approval_checker.py
+      
+      - name: 📊 Display Decision
+        run: |
+          echo "════════════════════════════════════════════════════"
+          echo "PR APPROVAL DECISION"
+          echo "════════════════════════════════════════════════════"
+          echo "Auto-approve: ${{ steps.approval.outputs.auto_approve }}"
+          echo "Confidence: ${{ steps.approval.outputs.confidence }}"
+          echo "Reason: ${{ steps.approval.outputs.reason }}"
+          echo "════════════════════════════════════════════════════"
+
+  # ═══════════════════════════════════════════════════════════
+  # STEP 5: Deploy to Staging (ONLY after merge to main)
+  # ═══════════════════════════════════════════════════════════
+  call-staging:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/staging_release.yml
+    secrets:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: us-east-1
+      EC2_HOST: ${{ secrets.EC2_HOST }}
+      EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
+      EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+
+  # ═══════════════════════════════════════════════════════════
+  # ⭐ NEW STEP 6: Run Auto Tests on Staging (AFTER deployment)
+  # ═══════════════════════════════════════════════════════════
+  call-ai-autotest-staging:
+    needs: call-staging  # ← WAITS for staging deployment to finish
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/auto_test.yml
+    permissions:
+      contents: read
+      issues: write
+    secrets:
+      OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
+      JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+      JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+      JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+      TRACKER_ENDPOINT: ${{ secrets.TRACKER_ENDPOINT }}
+      TRACKER_API_KEY: ${{ secrets.TRACKER_API_KEY }}
