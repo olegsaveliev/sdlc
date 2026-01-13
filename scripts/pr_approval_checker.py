@@ -161,19 +161,36 @@ def check_if_auto_approvable(pr_data: Dict[str, Any]) -> Dict[str, Any]:
         print(f"✅ Low-risk files: YES (all {len(changed_files)} files are docs/tests/config)")
     
     # ─────────────────────────────────────────────────────────
-    # Criterion 3: AI review passed
+    # Criterion 3: AI review passed (STRICT - must have approval, no critical)
     # ─────────────────────────────────────────────────────────
     ai_review_passed = False
     if ai_review:
-        # Check for positive indicators
-        has_approval = "✅" in ai_review or "APPROVED" in ai_review
-        has_critical = "🔴" in ai_review or "Critical" in ai_review
+        ai_review_lower = ai_review.lower()
+        
+        # Check for approval indicators (must be present)
+        has_approval = (
+            "✅" in ai_review or 
+            "approved" in ai_review_lower or
+            "looks good" in ai_review_lower
+        )
+        
+        # Check for critical issues (must NOT be present)
+        has_critical = (
+            "🔴" in ai_review or 
+            "critical" in ai_review_lower or
+            "must fix" in ai_review_lower or
+            "blocking" in ai_review_lower or
+            "security risk" in ai_review_lower
+        )
         
         ai_review_passed = has_approval and not has_critical
         
+        # Detailed logging
         print(f"{'✅' if ai_review_passed else '❌'} AI review passed: {ai_review_passed}")
+        print(f"   Has approval markers: {has_approval}")
+        print(f"   Has critical issues: {has_critical}")
         if has_critical:
-            print(f"   ⚠️  Critical issues found in AI review")
+            print(f"   ⚠️  BLOCKED: Critical issues found - human review required")
     else:
         print(f"❌ AI review passed: NO (no AI review found)")
     
