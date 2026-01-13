@@ -48,6 +48,7 @@ jobs:
           SLACK_WEBHOOK: ${{ secrets.SLACK_PR_REVIEW }}
           TRACKER_ENDPOINT: ${{ secrets.TRACKER_ENDPOINT }}
           TRACKER_API_KEY: ${{ secrets.TRACKER_API_KEY }}
+          PYTHONPATH: ${{ github.workspace }}
           AGENT_NAME: PR_REVIEW
           PROMPT_VERSION: v1
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
