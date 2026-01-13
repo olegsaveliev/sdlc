@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 PR Approval Checker
-Determines if PR can be auto-approved or needs human review based on AI analysis.
+Determines if PR can be auto-approved or needs human review.
 """
 
 import os
@@ -26,6 +26,10 @@ MAX_FILES_FOR_AUTO_APPROVE = 3
 LOW_RISK_EXTENSIONS = ('.md', '.txt', '.yml', '.yaml', '.json', '.gitignore')
 LOW_RISK_PREFIXES = ('test_', 'tests/')
 HIGH_RISK_KEYWORDS = ['auth', 'password', 'secret', 'token', 'credential', 'key', 'admin']
+
+# Test workflow detection
+TEST_KEYWORDS = ['test', 'unit', 'regression', 'quality']
+EXCLUDE_KEYWORDS = ['staging', 'deploy', 'release', 'production', 'prod']
 
 
 # ═══════════════════════════════════════════════════════════
@@ -63,12 +67,12 @@ def get_pr_data() -> Dict[str, Any]:
         
         # Find AI review comment
         ai_review = ""
-        for comment in reversed(comments):  # Get latest first
-            if '🤖 AI Code Review' in comment.get('body', ''):
+        for comment in reversed(comments):
+            if '🤖 AI Code Review' in comment.get('body', '') or '🤖 AI' in comment.get('body', ''):
                 ai_review = comment['body']
                 break
         
-        # Get check runs (test status)
+        # Get check runs
         checks_url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/commits/{pr['head']['sha']}/check-runs"
         checks_response = requests.get(checks_url, headers=headers, timeout=10)
         checks_response.raise_for_status()
@@ -87,6 +91,25 @@ def get_pr_data() -> Dict[str, Any]:
     except Exception as e:
         print(f"❌ Error fetching PR data: {e}")
         sys.exit(1)
+
+
+def is_test_workflow(name: str) -> bool:
+    """
+    Check if a workflow/check is a test (not deployment/staging).
+    
+    Returns True if:
+    - Contains test keywords (test, unit, regression, quality)
+    - Does NOT contain exclude keywords (staging, deploy, release, production)
+    """
+    name_lower = name.lower()
+    
+    # Must contain a test keyword
+    has_test_keyword = any(keyword in name_lower for keyword in TEST_KEYWORDS)
+    
+    # Must NOT contain an exclude keyword
+    has_exclude_keyword = any(keyword in name_lower for keyword in EXCLUDE_KEYWORDS)
+    
+    return has_test_keyword and not has_exclude_keyword
 
 
 def check_if_auto_approvable(pr_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -155,83 +178,32 @@ def check_if_auto_approvable(pr_data: Dict[str, Any]) -> Dict[str, Any]:
         print(f"❌ AI review passed: NO (no AI review found)")
     
     # ─────────────────────────────────────────────────────────
-    # Criterion 4: Tests passed
+    # Criterion 4: Tests passed (FIXED - excludes staging/deploy)
     # ─────────────────────────────────────────────────────────
     tests_passed = False
-    
-    # First try: Check for workflow runs (more reliable)
-    try:
-        workflows_url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/actions/runs"
-        params = {
-            'event': 'pull_request',
-            'branch': pr_data['pr']['head']['ref'],
-            'per_page': 20  # Get recent runs
-        }
-        workflows_response = requests.get(
-            workflows_url, 
-            headers={'Authorization': f'token {GITHUB_TOKEN}', 'Accept': 'application/vnd.github.v3+json'},
-            params=params,
-            timeout=10
-        )
-        workflows_response.raise_for_status()
-        workflow_runs = workflows_response.json().get('workflow_runs', [])
+    if checks:
+        # Filter to ONLY test checks (exclude staging/deployment)
+        test_checks = [c for c in checks if is_test_workflow(c['name'])]
         
-        # Look for test workflows
-        test_workflows = [
-            w for w in workflow_runs
-            if any(keyword in w['name'].lower() for keyword in ['test', 'unit', 'regression', 'quality'])
-            and w['head_sha'] == pr_data['pr']['head']['sha']  # Match this PR's commit
-        ]
-        
-        if test_workflows:
-            # Check if all test workflows succeeded
-            tests_passed = all(w['conclusion'] == 'success' for w in test_workflows)
-            failed = [w['name'] for w in test_workflows if w['conclusion'] != 'success']
+        if test_checks:
+            tests_passed = all(c['conclusion'] == 'success' for c in test_checks)
+            failed_tests = [c['name'] for c in test_checks if c['conclusion'] != 'success']
             
-            print(f"{'✅' if tests_passed else '❌'} Tests passed: {len(test_workflows)} workflows")
-            if failed:
-                print(f"   ⚠️  Failed: {failed}")
-            # Debug: Show all workflow statuses
-            for w in test_workflows:
-                print(f"      - {w['name']}: {w['conclusion']}")
+            print(f"{'✅' if tests_passed else '❌'} Tests passed: {len(test_checks)} checks")
+            if failed_tests:
+                print(f"   ⚠️  Failed: {failed_tests}")
+            
+            # Debug: Show what was included/excluded
+            excluded = [c['name'] for c in checks if not is_test_workflow(c['name'])]
+            if excluded:
+                print(f"   ℹ️  Excluded (not tests): {excluded[:3]}")
         else:
-            # Fallback: Try check runs
-            if checks:
-                test_checks = [
-                    c for c in checks 
-                    if any(keyword in c['name'].lower() for keyword in ['test', 'unit', 'regression'])
-                ]
-                
-                if test_checks:
-                    tests_passed = all(c['conclusion'] == 'success' for c in test_checks)
-                    failed_tests = [c['name'] for c in test_checks if c['conclusion'] != 'success']
-                    
-                    print(f"{'✅' if tests_passed else '❌'} Tests passed: {len(test_checks)} checks")
-                    if failed_tests:
-                        print(f"   ⚠️  Failed: {failed_tests}")
-                else:
-                    # No tests found - OK for docs/config only
-                    tests_passed = low_risk_files
-                    print(f"{'✅' if tests_passed else '⚠️ '} Tests passed: N/A (no test workflows/checks found)")
-            else:
-                # No checks or workflows - OK for docs only
-                tests_passed = low_risk_files
-                print(f"{'✅' if tests_passed else '⚠️ '} Tests passed: N/A (no checks data)")
-    
-    except Exception as e:
-        print(f"⚠️  Error checking workflows: {e}")
-        # Fallback to check runs
-        if checks:
-            test_checks = [
-                c for c in checks 
-                if any(keyword in c['name'].lower() for keyword in ['test', 'unit', 'regression'])
-            ]
-            if test_checks:
-                tests_passed = all(c['conclusion'] == 'success' for c in test_checks)
-            else:
-                tests_passed = low_risk_files
-        else:
-            tests_passed = False
+            # No test checks found - assume OK for docs/config changes
+            tests_passed = low_risk_files
+            print(f"{'✅' if tests_passed else '⚠️ '} Tests passed: N/A (no test checks found)")
+    else:
+        print(f"⚠️  Tests passed: Unknown (no checks data)")
+        tests_passed = False
     
     # ─────────────────────────────────────────────────────────
     # Criterion 5: No security-sensitive changes
@@ -282,49 +254,32 @@ def check_if_auto_approvable(pr_data: Dict[str, Any]) -> Dict[str, Any]:
             "auto_approve": True,
             "reason": "✅ Low-risk change with all quality checks passed",
             "criteria_results": criteria,
+            "confidence": "high",
             "recommended_labels": ["auto-approved", "ready-to-merge"],
-            "confidence": "high"
+            "assign_to": None
         }
     else:
-        failed = [k.replace('_', ' ').title() for k, v in criteria.items() if not v]
+        # Determine failed criteria
+        failed_criteria = [k.replace('_', ' ').title() for k, v in criteria.items() if not v]
         
-        # Determine reviewer based on what failed
-        assign_to = "tech-lead"
-        if not criteria["no_security_changes"]:
-            assign_to = "security-team"
-        elif not criteria["tests_passed"]:
-            assign_to = "qa-team"
+        # Determine who should review based on what failed
+        if not criteria["ai_review_passed"] or not criteria["tests_passed"]:
+            assign_to = "QA Team"
+        elif not criteria["no_security_changes"]:
+            assign_to = "Security Team"
+        elif not criteria["low_risk_files"]:
+            assign_to = "Tech Lead"
+        else:
+            assign_to = "Tech Lead"
         
         return {
             "auto_approve": False,
-            "reason": f"❌ Needs human review - Failed: {', '.join(failed)}",
+            "reason": f"❌ Needs human review - Failed: {', '.join(failed_criteria)}",
             "criteria_results": criteria,
-            "assign_to": assign_to,
+            "confidence": "low",
             "recommended_labels": ["needs-review"],
-            "confidence": "low" if len(failed) >= 3 else "medium"
+            "assign_to": assign_to
         }
-
-
-def add_pr_label(label: str):
-    """Add label to PR."""
-    
-    api_url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/issues/{PR_NUMBER}/labels"
-    headers = {
-        'Authorization': f'token {GITHUB_TOKEN}',
-        'Accept': 'application/vnd.github.v3+json'
-    }
-    
-    try:
-        response = requests.post(
-            api_url,
-            headers=headers,
-            json={"labels": [label]},
-            timeout=10
-        )
-        response.raise_for_status()
-        print(f"   ✅ Added label: {label}")
-    except Exception as e:
-        print(f"   ⚠️  Could not add label '{label}': {e}")
 
 
 def add_pr_label(label: str):
@@ -354,31 +309,12 @@ def post_decision_comment(decision: Dict[str, Any], pr_data: Dict[str, Any]):
     
     print("\n📝 Posting decision to PR...")
     
-    criteria_emoji = {
-        "small_change": "📝",
-        "low_risk_files": "🛡️",
-        "ai_review_passed": "🤖",
-        "tests_passed": "🧪",
-        "no_security_changes": "🔒"
-    }
-    
-    criteria_names = {
-        "small_change": "Small Change",
-        "low_risk_files": "Low-Risk Files",
-        "ai_review_passed": "AI Review Passed",
-        "tests_passed": "Tests Passed",
-        "no_security_changes": "No Security Changes"
-    }
-    
     # Build criteria table
-    criteria_rows = []
-    for key, passed in decision["criteria_results"].items():
-        emoji = criteria_emoji.get(key, "•")
-        name = criteria_names.get(key, key)
-        status = "✅ Pass" if passed else "❌ Fail"
-        criteria_rows.append(f"| {emoji} {name} | {status} |")
-    
-    criteria_table = "\n".join(criteria_rows)
+    criteria_table = ""
+    for criterion, passed in decision["criteria_results"].items():
+        icon = "✅ Pass" if passed else "❌ Fail"
+        name = criterion.replace('_', ' ').title()
+        criteria_table += f"| {name} | {icon} |\n"
     
     if decision["auto_approve"]:
         comment = f"""## 🎉 Auto-Approval Recommendation
@@ -416,7 +352,7 @@ This PR meets all criteria for auto-approval. A team lead can merge when ready.
 **Confidence:** {decision['confidence'].upper()}
 
 ### 👤 Recommended Reviewer
-**{decision['assign_to'].replace('-', ' ').title()}** should review this PR.
+**{decision['assign_to']}** should review this PR.
 
 ### 🏷️ Actions Taken
 - Added labels: `{', '.join(decision['recommended_labels'])}`
@@ -528,7 +464,7 @@ def send_slack_notification(decision: Dict[str, Any], pr_data: Dict[str, Any]):
                         },
                         {
                             "type": "mrkdwn",
-                            "text": f"*Assign To:*\n{decision['assign_to'].replace('-', ' ').title()}"
+                            "text": f"*Assign To:*\n{decision['assign_to']}"
                         },
                         {
                             "type": "mrkdwn",
