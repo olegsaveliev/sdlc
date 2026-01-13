@@ -158,27 +158,80 @@ def check_if_auto_approvable(pr_data: Dict[str, Any]) -> Dict[str, Any]:
     # Criterion 4: Tests passed
     # ─────────────────────────────────────────────────────────
     tests_passed = False
-    if checks:
-        # Check if all test-related checks passed
-        test_checks = [
-            c for c in checks 
-            if any(keyword in c['name'].lower() for keyword in ['test', 'unit', 'regression'])
+    
+    # First try: Check for workflow runs (more reliable)
+    try:
+        workflows_url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/actions/runs"
+        params = {
+            'event': 'pull_request',
+            'branch': pr_data['pr']['head']['ref'],
+            'per_page': 20  # Get recent runs
+        }
+        workflows_response = requests.get(
+            workflows_url, 
+            headers={'Authorization': f'token {GITHUB_TOKEN}', 'Accept': 'application/vnd.github.v3+json'},
+            params=params,
+            timeout=10
+        )
+        workflows_response.raise_for_status()
+        workflow_runs = workflows_response.json().get('workflow_runs', [])
+        
+        # Look for test workflows
+        test_workflows = [
+            w for w in workflow_runs
+            if any(keyword in w['name'].lower() for keyword in ['test', 'unit', 'regression', 'quality'])
+            and w['head_sha'] == pr_data['pr']['head']['sha']  # Match this PR's commit
         ]
         
-        if test_checks:
-            tests_passed = all(c['conclusion'] == 'success' for c in test_checks)
-            failed_tests = [c['name'] for c in test_checks if c['conclusion'] != 'success']
+        if test_workflows:
+            # Check if all test workflows succeeded
+            tests_passed = all(w['conclusion'] == 'success' for w in test_workflows)
+            failed = [w['name'] for w in test_workflows if w['conclusion'] != 'success']
             
-            print(f"{'✅' if tests_passed else '❌'} Tests passed: {len(test_checks)} checks")
-            if failed_tests:
-                print(f"   ⚠️  Failed: {failed_tests}")
+            print(f"{'✅' if tests_passed else '❌'} Tests passed: {len(test_workflows)} workflows")
+            if failed:
+                print(f"   ⚠️  Failed: {failed}")
+            # Debug: Show all workflow statuses
+            for w in test_workflows:
+                print(f"      - {w['name']}: {w['conclusion']}")
         else:
-            # No test checks found - assume OK for docs/config changes
-            tests_passed = low_risk_files
-            print(f"{'✅' if tests_passed else '⚠️ '} Tests passed: N/A (no test checks found)")
-    else:
-        print(f"⚠️  Tests passed: Unknown (no checks data)")
-        tests_passed = False
+            # Fallback: Try check runs
+            if checks:
+                test_checks = [
+                    c for c in checks 
+                    if any(keyword in c['name'].lower() for keyword in ['test', 'unit', 'regression'])
+                ]
+                
+                if test_checks:
+                    tests_passed = all(c['conclusion'] == 'success' for c in test_checks)
+                    failed_tests = [c['name'] for c in test_checks if c['conclusion'] != 'success']
+                    
+                    print(f"{'✅' if tests_passed else '❌'} Tests passed: {len(test_checks)} checks")
+                    if failed_tests:
+                        print(f"   ⚠️  Failed: {failed_tests}")
+                else:
+                    # No tests found - OK for docs/config only
+                    tests_passed = low_risk_files
+                    print(f"{'✅' if tests_passed else '⚠️ '} Tests passed: N/A (no test workflows/checks found)")
+            else:
+                # No checks or workflows - OK for docs only
+                tests_passed = low_risk_files
+                print(f"{'✅' if tests_passed else '⚠️ '} Tests passed: N/A (no checks data)")
+    
+    except Exception as e:
+        print(f"⚠️  Error checking workflows: {e}")
+        # Fallback to check runs
+        if checks:
+            test_checks = [
+                c for c in checks 
+                if any(keyword in c['name'].lower() for keyword in ['test', 'unit', 'regression'])
+            ]
+            if test_checks:
+                tests_passed = all(c['conclusion'] == 'success' for c in test_checks)
+            else:
+                tests_passed = low_risk_files
+        else:
+            tests_passed = False
     
     # ─────────────────────────────────────────────────────────
     # Criterion 5: No security-sensitive changes
@@ -254,6 +307,28 @@ def check_if_auto_approvable(pr_data: Dict[str, Any]) -> Dict[str, Any]:
 
 def add_pr_label(label: str):
     """Add label to PR."""
+    
+    api_url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/issues/{PR_NUMBER}/labels"
+    headers = {
+        'Authorization': f'token {GITHUB_TOKEN}',
+        'Accept': 'application/vnd.github.v3+json'
+    }
+    
+    try:
+        response = requests.post(
+            api_url,
+            headers=headers,
+            json={"labels": [label]},
+            timeout=10
+        )
+        response.raise_for_status()
+        print(f"   ✅ Added label: {label}")
+    except Exception as e:
+        print(f"   ⚠️  Could not add label '{label}': {e}")
+
+
+def add_pr_label(label: str):
+    """Add a label to the PR."""
     
     api_url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/issues/{PR_NUMBER}/labels"
     headers = {
