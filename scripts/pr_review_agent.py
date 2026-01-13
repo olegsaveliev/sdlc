@@ -11,6 +11,7 @@ import re
 import requests
 from openai import OpenAI
 from auto_tracker import track_openai  # ← Auto-tracking import
+import yaml 
 
 # ═══════════════════════════════════════════════════════════
 # Configuration
@@ -24,6 +25,7 @@ REPO_NAME = os.environ.get('REPO_NAME')
 BASE_REF = os.environ.get('BASE_REF')
 GITHUB_RUN_URL = os.environ.get('GITHUB_RUN_URL')
 SLACK_WEBHOOK = os.environ.get('SLACK_WEBHOOK')
+PROMPT_VERSION = os.getenv("PROMPT_VERSION", "v1")
 
 # Review settings
 MAX_FILE_SIZE = 5000  # Max characters per file to review
@@ -114,37 +116,17 @@ def review_code_with_ai(files_content):
             code_sections.append(f"### File: {file_path}\n```\n{content}\n```")
         
         all_code = "\n\n".join(code_sections)
-        
-        prompt = f"""You are a senior software engineer with 10 years experience reviewing Python code for production systems. Review these code files and provide constructive feedback.
+#promt start        
+       prompt_config = load_prompt("pr_review", PROMPT_VERSION)
 
-Focus on:
-1. 🐛 **Bugs & Logic Errors**: Null checks, edge cases, potential crashes
-2. 🔒 **Security Issues**: SQL injection, XSS, authentication, exposed secrets
-3. ⚡ **Performance**: Inefficient code, memory leaks, slow operations
-4. 📖 **Code Quality**: Readability, naming, complexity, best practices
-5. 🧪 **Testing Needs**: What should be tested, missing test cases
-6. 📚 **Documentation**: Unclear code, missing comments
+system_prompt = prompt_config["system"]
+user_prompt = prompt_config["user"]
 
-Format your response:
-- Start with overall assessment (✅ Looks good / ⚠️ Needs attention / 🔴 Critical issues)
-- Group findings by severity:
-  - 🔴 **Critical**: Must fix immediately (security, major bugs)
-  - 🟡 **Important**: Should fix (performance, quality issues)
-  - 🟢 **Suggestions**: Nice to have (style, minor improvements)
-- For each issue:
-  - Mention the file name
-  - Point out the specific problem
-  - Explain WHY it's an issue
-  - Suggest HOW to fix it with code example if helpful
-- End with positive feedback on what's done well
-- Be helpful and constructive, not just critical
+model = prompt_config.get("model", "gpt-4o-mini")
+temperature = prompt_config.get("temperature", 0.2)
 
-EXAMPLE GOOD REVIEW:
-        Code to review:
-
-{all_code}
-
-Provide your code review:"""
+print(f"🧠 Prompt Version: {PROMPT_VERSION}")
+# prompt end
         
         print(f"🤖 Analyzing {len(files_content)} files with AI...")
         
