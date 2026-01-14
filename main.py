@@ -152,7 +152,7 @@ async def read_root():
 
         .button-group {
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-columns: 1fr 1fr;
             gap: 12px;
             margin: 28px 0 20px;
         }
@@ -168,17 +168,17 @@ async def read_root():
             letter-spacing: -0.2px;
         }
 
-        .btn-add, .btn-subtract, .btn-multiply {
+        .btn-add, .btn-subtract, .btn-multiply, .btn-divide {
             background: #e8e8ed;
             color: #1d1d1f;
         }
 
-        .btn-add:hover, .btn-subtract:hover, .btn-multiply:hover {
+        .btn-add:hover, .btn-subtract:hover, .btn-multiply:hover, .btn-divide:hover {
             background: #d2d2d7;
             transform: translateY(-1px);
         }
 
-        .btn-add.active, .btn-subtract.active, .btn-multiply.active {
+        .btn-add.active, .btn-subtract.active, .btn-multiply.active, .btn-divide.active {
             background: #0071e3;
             color: white;
         }
@@ -186,7 +186,7 @@ async def read_root():
         .btn-equals {
             background: #34c759;
             color: white;
-            grid-column: span 3;
+            grid-column: span 2;
             font-size: 18px;
             font-weight: 600;
         }
@@ -200,7 +200,7 @@ async def read_root():
         .btn-reset {
             background: #f5f5f7;
             color: #1d1d1f;
-            grid-column: span 3;
+            grid-column: span 2;
         }
 
         .btn-reset:hover {
@@ -344,6 +344,7 @@ async def read_root():
                 <button class="btn-add" onclick="selectOperation('add')">+</button>
                 <button class="btn-subtract" onclick="selectOperation('subtract')">-</button>
                 <button class="btn-multiply" onclick="selectOperation('multiply')">×</button>
+                <button class="btn-divide" onclick="selectOperation('divide')">÷</button>
                 <button class="btn-equals" onclick="calculateResult()">=</button>
                 <button class="btn-reset" onclick="reset()">Reset</button>
             </div>
@@ -362,6 +363,7 @@ async def read_root():
             <p style="margin: 5px 0;"><strong>Add:</strong> <code>GET /add?a={num1}&b={num2}</code></p>
             <p style="margin: 5px 0;"><strong>Subtract:</strong> <code>GET /subtract?a={num1}&b={num2}</code></p>
             <p style="margin: 5px 0;"><strong>Multiply:</strong> <code>GET /multiply?a={num1}&b={num2}</code></p>
+            <p style="margin: 5px 0;"><strong>Divide:</strong> <code>GET /divide?a={num1}&b={num2}</code></p>
             <p style="margin: 5px 0;"><strong>Docs:</strong> <code>GET /docs</code></p>
         </div>
 
@@ -382,7 +384,7 @@ async def read_root():
             selectedOperation = operation;
 
             // Remove active class from all operation buttons
-            document.querySelectorAll('.btn-add, .btn-subtract, .btn-multiply').forEach(btn => {
+            document.querySelectorAll('.btn-add, .btn-subtract, .btn-multiply, .btn-divide').forEach(btn => {
                 btn.classList.remove('active');
             });
 
@@ -427,7 +429,7 @@ async def read_root():
         async function calculateResult() {
             if (!selectedOperation) {
                 const error = document.getElementById('error');
-                error.textContent = 'Please select an operation (+, -, ×)';
+                error.textContent = 'Please select an operation (+, -, ×, ÷)';
                 error.style.display = 'block';
                 setTimeout(() => {
                     error.style.display = 'none';
@@ -501,7 +503,7 @@ async def read_root():
 
             // Reset selected operation
             selectedOperation = null;
-            document.querySelectorAll('.btn-add, .btn-subtract, .btn-multiply').forEach(btn => {
+            document.querySelectorAll('.btn-add, .btn-subtract, .btn-multiply, .btn-divide').forEach(btn => {
                 btn.classList.remove('active');
             });
         }
