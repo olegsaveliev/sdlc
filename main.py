@@ -17,6 +17,12 @@ def multiply(a, b):
     """Multiply two numbers"""
     return a * b
 
+def divide(a, b):
+    """Divide two numbers"""
+    if b == 0:
+        raise ValueError("Cannot divide by zero")
+    return a / b
+
 app = FastAPI(title="Calculator API - Staging")
 
 # Serve the HTML interface
@@ -532,6 +538,13 @@ async def api_multiply(a: float, b: float):
     """Multiply two numbers"""
     result = multiply(a, b)
     return {"operation": "multiply", "a": a, "b": b, "result": result}
+
+
+@app.get("/divide")
+async def api_divide(a: float, b: float):
+    """Divide two numbers"""
+    result = divide(a, b)
+    return {"operation": "divide", "a": a, "b": b, "result": result}
 
 
 @app.get("/health")
