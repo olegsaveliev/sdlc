@@ -1,12 +1,30 @@
+/* ============================================
+   Calculator UI - Modern Inclusive Design
+   Based on bold graphic design with black/white/yellow palette
+   ============================================ */
+
+/* CSS Custom Properties - Color Scheme */
+:root {
+    --color-black: #000000;
+    --color-white: #FFFFFF;
+    --color-yellow: #FFD700;
+    --color-yellow-soft: #FFEB3B;
+    --color-grey-bg: #F5F5F5;
+    --color-grey-light: #E8E8E8;
+    --color-grey-text: #333333;
+}
+
+/* Reset */
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
 }
 
+/* Body */
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
-    background: #f5f5f7;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', 'Arial', sans-serif;
+    background: var(--color-grey-bg);
     min-height: 100vh;
     display: flex;
     justify-content: center;
@@ -14,106 +32,95 @@ body {
     padding: 20px;
 }
 
+/* Container - Bold black border, no shadow */
 .container {
-    background: white;
+    background: var(--color-white);
     padding: 48px;
-    border-radius: 18px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07), 0 10px 20px rgba(0, 0, 0, 0.05);
+    border: 3px solid var(--color-black);
+    border-radius: 0;
     max-width: 420px;
     width: 100%;
+    box-shadow: none;
 }
 
+/* Title - Bold black text, no gradient */
 h1 {
-    color: #1d1d1f;
+    color: var(--color-black);
     margin-bottom: 8px;
     text-align: center;
-    font-size: 28px;
-    font-weight: 600;
+    font-size: 32px;
+    font-weight: 700;
     letter-spacing: -0.5px;
-    overflow: hidden;
-    white-space: nowrap;
+    text-transform: uppercase;
 }
 
 h1 span {
     display: inline-block;
-    animation: scrollText 8s linear infinite, sparkle 2s ease-in-out infinite;
-    background: linear-gradient(45deg, #ff0080, #ff8c00, #ffd700, #00ff00, #0080ff, #8000ff, #ff0080);
-    background-size: 400% 400%;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: var(--color-black);
+    /* Removed gradient animation - clean bold text */
 }
 
-@keyframes scrollText {
-    0% {
-        transform: translateX(100%);
-    }
-    100% {
-        transform: translateX(-100%);
-    }
-}
-
-@keyframes sparkle {
-    0%, 100% {
-        background-position: 0% 50%;
-        filter: brightness(1);
-    }
-    50% {
-        background-position: 100% 50%;
-        filter: brightness(1.3);
-    }
-}
-
+/* Status Badge - Yellow background, black text, bold border */
 .status {
-    background: #f5f5f7;
-    color: #86868b;
-    padding: 6px 12px;
-    border-radius: 12px;
+    background: var(--color-yellow);
+    color: var(--color-black);
+    padding: 8px 16px;
+    border: 2px solid var(--color-black);
+    border-radius: 0;
     display: inline-block;
     margin: 12px 0 32px;
     font-size: 12px;
-    font-weight: 500;
-    letter-spacing: 0.2px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
 }
 
+/* Calculator Section */
 .calculator {
     margin-top: 0;
 }
 
+/* Input Groups */
 .input-group {
-    margin-bottom: 16px;
+    margin-bottom: 20px;
 }
 
 label {
     display: block;
     margin-bottom: 8px;
-    color: #1d1d1f;
-    font-weight: 500;
+    color: var(--color-black);
+    font-weight: 700;
     font-size: 14px;
-    letter-spacing: -0.1px;
+    letter-spacing: 0.2px;
+    text-transform: uppercase;
 }
 
+/* Input Fields - Bold black border, white background */
 input[type="number"] {
     width: 100%;
-    padding: 12px 16px;
-    border: 1px solid #d2d2d7;
-    border-radius: 10px;
-    font-size: 17px;
+    padding: 14px 16px;
+    border: 2px solid var(--color-black);
+    border-radius: 0;
+    font-size: 18px;
+    font-weight: 600;
     transition: all 0.2s ease;
-    background: #fafafa;
+    background: var(--color-white);
+    color: var(--color-black);
 }
 
 input[type="number"]:focus {
     outline: none;
-    border-color: #0071e3;
-    background: white;
-    box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.1);
+    border-color: var(--color-black);
+    background: var(--color-white);
+    box-shadow: 0 0 0 3px var(--color-yellow);
 }
 
 input[type="number"]::placeholder {
-    color: #86868b;
+    color: var(--color-grey-text);
+    opacity: 0.5;
 }
 
+/* Button Group */
 .button-group {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -121,57 +128,71 @@ input[type="number"]::placeholder {
     margin: 28px 0 20px;
 }
 
+/* Buttons - Bold black borders, white background */
 button {
-    padding: 12px 20px;
-    border: none;
-    border-radius: 10px;
-    font-size: 15px;
-    font-weight: 500;
+    padding: 14px 20px;
+    border: 2px solid var(--color-black);
+    border-radius: 0;
+    font-size: 16px;
+    font-weight: 700;
     cursor: pointer;
     transition: all 0.2s ease;
-    letter-spacing: -0.2px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    background: var(--color-white);
+    color: var(--color-black);
 }
 
+/* Operation Buttons - White with black border */
 .btn-add, .btn-subtract, .btn-multiply, .btn-divide {
-    background: #e8e8ed;
-    color: #1d1d1f;
+    background: var(--color-white);
+    color: var(--color-black);
 }
 
 .btn-add:hover, .btn-subtract:hover, .btn-multiply:hover, .btn-divide:hover {
-    background: #d2d2d7;
-    transform: translateY(-1px);
+    background: var(--color-yellow);
+    color: var(--color-black);
+    transform: translateY(-2px);
 }
 
+/* Active Operation Buttons - Yellow background */
 .btn-add.active, .btn-subtract.active, .btn-multiply.active, .btn-divide.active {
-    background: #0071e3;
-    color: white;
+    background: var(--color-yellow);
+    color: var(--color-black);
+    border: 3px solid var(--color-black);
 }
 
+/* Equals Button - Yellow background, black text */
 .btn-equals {
-    background: #34c759;
-    color: white;
+    background: var(--color-yellow);
+    color: var(--color-black);
     grid-column: span 2;
-    font-size: 18px;
-    font-weight: 600;
+    font-size: 20px;
+    font-weight: 700;
+    border: 3px solid var(--color-black);
 }
 
 .btn-equals:hover {
-    background: #30b350;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(52, 199, 89, 0.35);
+    background: var(--color-yellow-soft);
+    color: var(--color-black);
+    transform: translateY(-2px);
+    box-shadow: 4px 4px 0 var(--color-black);
 }
 
+/* Reset Button - White background */
 .btn-reset {
-    background: #f5f5f7;
-    color: #1d1d1f;
+    background: var(--color-white);
+    color: var(--color-black);
     grid-column: span 2;
 }
 
 .btn-reset:hover {
-    background: #e8e8ed;
-    transform: translateY(-1px);
+    background: var(--color-grey-light);
+    color: var(--color-black);
+    transform: translateY(-2px);
 }
 
+/* Salute Animation Container */
 .salute-container {
     position: fixed;
     top: 0;
@@ -189,6 +210,7 @@ button {
     opacity: 0;
 }
 
+/* Simplified animation - clean motion */
 @keyframes salute-burst {
     0% {
         opacity: 1;
@@ -203,10 +225,12 @@ button {
     }
 }
 
+/* Result Display - Bold black border, yellow accent */
 .result {
-    background: #f5f5f7;
+    background: var(--color-white);
     padding: 24px;
-    border-radius: 12px;
+    border: 3px solid var(--color-black);
+    border-radius: 0;
     margin-top: 24px;
     text-align: center;
     min-height: 90px;
@@ -217,70 +241,116 @@ button {
 }
 
 .result-label {
-    color: #86868b;
-    font-size: 13px;
+    color: var(--color-black);
+    font-size: 12px;
     margin-bottom: 8px;
-    font-weight: 500;
-    letter-spacing: 0.2px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
 }
 
 .result-value {
-    font-size: 36px;
-    font-weight: 600;
-    color: #1d1d1f;
+    font-size: 42px;
+    font-weight: 700;
+    color: var(--color-yellow);
+    -webkit-text-stroke: 2px var(--color-black);
+    -webkit-text-fill-color: var(--color-yellow);
     letter-spacing: -1px;
     transition: transform 0.2s ease;
+    text-shadow: 
+        -2px -2px 0 var(--color-black),
+        2px -2px 0 var(--color-black),
+        -2px 2px 0 var(--color-black),
+        2px 2px 0 var(--color-black);
 }
 
+/* API Info Section - Bold borders */
 .api-info {
-    background: #f5f5f7;
+    background: var(--color-white);
     padding: 20px;
     margin-top: 32px;
-    border-radius: 12px;
+    border: 2px solid var(--color-black);
+    border-radius: 0;
 }
 
 .api-info h3 {
-    color: #1d1d1f;
+    color: var(--color-black);
     margin-bottom: 12px;
-    font-size: 15px;
-    font-weight: 600;
-    letter-spacing: -0.2px;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
 }
 
 .api-info code {
-    background: white;
+    background: var(--color-yellow);
     padding: 4px 8px;
-    border-radius: 6px;
+    border: 1px solid var(--color-black);
+    border-radius: 0;
     font-size: 12px;
-    color: #1d1d1f;
-    font-family: 'SF Mono', Monaco, monospace;
+    color: var(--color-black);
+    font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+    font-weight: 600;
 }
 
 .api-info p {
-    color: #1d1d1f;
+    color: var(--color-black);
     font-size: 13px;
+    font-weight: 500;
 }
 
+/* Footer */
 .footer {
     text-align: center;
     margin-top: 32px;
-    color: #86868b;
+    color: var(--color-black);
     font-size: 12px;
     line-height: 1.6;
-}
-
-.error {
-    color: #d60000;
-    font-size: 13px;
-    margin-top: 12px;
-    display: none;
     font-weight: 500;
 }
 
+/* Error Message - Bold black text */
+.error {
+    color: var(--color-black);
+    font-size: 13px;
+    margin-top: 12px;
+    display: none;
+    font-weight: 700;
+    padding: 8px;
+    background: var(--color-yellow);
+    border: 2px solid var(--color-black);
+    text-transform: uppercase;
+}
+
+/* Loading Message - Yellow accent */
 .loading {
     display: none;
-    color: #0071e3;
+    color: var(--color-black);
     font-size: 13px;
     margin-top: 12px;
-    font-weight: 500;
+    font-weight: 700;
+    padding: 8px;
+    background: var(--color-yellow);
+    border: 2px solid var(--color-black);
+    text-transform: uppercase;
+}
+
+/* Responsive Design */
+@media (max-width: 480px) {
+    .container {
+        padding: 32px 24px;
+    }
+    
+    h1 {
+        font-size: 28px;
+    }
+    
+    .result-value {
+        font-size: 36px;
+    }
+    
+    button {
+        padding: 12px 16px;
+        font-size: 14px;
+    }
 }

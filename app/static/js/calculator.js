@@ -22,7 +22,8 @@ function createSaluteAnimation(x, y) {
     container.className = 'salute-container';
     document.body.appendChild(container);
 
-    const emojis = ['🎉', '✨', '⭐', '🌟', '💫', '🎊'];
+    // Simplified emojis - using yellow/star themed
+    const emojis = ['⭐', '✨', '🌟', '💫'];
     const particleCount = 12;
 
     for (let i = 0; i < particleCount; i++) {

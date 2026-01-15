@@ -176,3 +176,31 @@ claude_session_tracker.sh
 *.todo
 personal/
 local/
+UPDATE_DOCKER.md
+
+# IDE and Editor files
+.cursor/
+*.code-workspace
+.vscode/
+.idea/
+
+# Local Docker files
+docker-compose.override.yml
+docker-compose.local.yml
+
+# macOS
+.AppleDouble
+.LSOverride
+Icon
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.directory
+.Trash-*
