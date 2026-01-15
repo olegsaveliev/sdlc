@@ -119,6 +119,16 @@ FRONTEND_BACKEND_SEPARATION.md
 progress.md
 GITHUB_READY.md
 PRE_COMMIT_CHECKLIST.md
+CLEANUP_GITHUB.md
+QUICK_CLEANUP.md
+FILE_CLEANUP_PLAN.md
+FINAL_CLEANUP.md
+
+# Personal Scripts
+cleanup_and_push.sh
+remove_personal_files.sh
+final_cleanup.sh
+claude_session_tracker_multi_model.sh
 
 # Docker
 .dockerignore.bak
