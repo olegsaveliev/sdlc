@@ -112,11 +112,13 @@ nohup.out
 *.old
 main.py.old
 
-# Documentation (optional - remove if you want to track these)
-# DOCKER_FIX.md
-# DOCKERFILE_UPDATES.md
-# FRONTEND_BACKEND_SEPARATION.md
-# progress.md
+# Personal Development Files (local notes, not for team)
+DOCKER_FIX.md
+DOCKERFILE_UPDATES.md
+FRONTEND_BACKEND_SEPARATION.md
+progress.md
+GITHUB_READY.md
+PRE_COMMIT_CHECKLIST.md
 
 # Docker
 .dockerignore.bak
@@ -152,8 +154,15 @@ dmypy.json
 # Pyre
 .pyre/
 
-# Project-specific
+# Project-specific / Personal files
 ai-usage-dashboard/
 scripts/scrum_master_agent_3questions.py
 scrum_master_TRACKED_clean.yml
 claude_session_tracker_multi_model.sh
+claude_session_tracker.sh
+
+# Personal notes and development tracking
+*.notes
+*.todo
+personal/
+local/
