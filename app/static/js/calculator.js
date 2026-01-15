@@ -4,6 +4,58 @@ document.getElementById('timestamp').textContent = new Date().toLocaleString();
 // Track selected operation
 let selectedOperation = null;
 
+// Track active input field for number pad
+let activeInput = null;
+
+// Initialize number pad
+document.addEventListener('DOMContentLoaded', function() {
+    const num1Input = document.getElementById('num1');
+    const num2Input = document.getElementById('num2');
+    
+    // Set active input on focus
+    num1Input.addEventListener('focus', () => {
+        activeInput = num1Input;
+        num1Input.style.borderColor = '#FFD700';
+        num2Input.style.borderColor = '#000000';
+    });
+    
+    num2Input.addEventListener('focus', () => {
+        activeInput = num2Input;
+        num2Input.style.borderColor = '#FFD700';
+        num1Input.style.borderColor = '#000000';
+    });
+    
+    // Default to first input
+    activeInput = num1Input;
+    
+    // Number pad button handlers
+    document.querySelectorAll('.num-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const number = this.getAttribute('data-number');
+            const action = this.getAttribute('data-action');
+            
+            if (action === 'backspace') {
+                // Remove last character
+                if (activeInput && activeInput.value.length > 0) {
+                    activeInput.value = activeInput.value.slice(0, -1);
+                }
+            } else if (number !== null) {
+                // Append number or decimal point
+                if (activeInput) {
+                    const currentValue = activeInput.value || '';
+                    if (number === '.' && currentValue.includes('.')) {
+                        // Don't allow multiple decimal points
+                        return;
+                    }
+                    activeInput.value = currentValue + number;
+                    // Trigger input event to update value
+                    activeInput.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+            }
+        });
+    });
+});
+
 function selectOperation(operation) {
     selectedOperation = operation;
 
