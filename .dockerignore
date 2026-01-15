@@ -3,6 +3,9 @@
 
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
 .git/
 .github/
 venv/
@@ -10,7 +13,14 @@ venv/
 .env
 *.log
 .DS_Store
+*.md
+tests/
 test_*.py
 scripts/
 *.db
 *.sqlite
+main.py.old
+progress.md
+FRONTEND_BACKEND_SEPARATION.md
+*.backup
+*.bk

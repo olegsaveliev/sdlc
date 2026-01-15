@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ title }} - {{ environment }} Environment</title>
+    <link rel="stylesheet" href="{{ url_for('/css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1><span>Calculator</span></h1>
+        <div style="text-align: center;">
+            <span class="status">{{ environment }} Environment</span>
+        </div>
+
+        <div class="calculator">
+            <div class="input-group">
+                <label for="num1">First Number</label>
+                <input type="number" id="num1" placeholder="0">
+            </div>
+
+            <div class="input-group">
+                <label for="num2">Second Number</label>
+                <input type="number" id="num2" placeholder="0">
+            </div>
+
+            <div class="button-group">
+                <button class="btn-add" onclick="selectOperation('add')">+</button>
+                <button class="btn-subtract" onclick="selectOperation('subtract')">-</button>
+                <button class="btn-multiply" onclick="selectOperation('multiply')">×</button>
+                <button class="btn-divide" onclick="selectOperation('divide')">÷</button>
+                <button class="btn-equals" onclick="calculateResult()">=</button>
+                <button class="btn-reset" onclick="reset()">Reset</button>
+            </div>
+
+            <div class="loading" id="loading">Calculating...</div>
+            <div class="error" id="error"></div>
+
+            <div class="result" id="result">
+                <div class="result-label">Result</div>
+                <div class="result-value" id="resultValue">-</div>
+            </div>
+        </div>
+
+        <div class="api-info">
+            <h3>API Endpoints</h3>
+            <p style="margin: 5px 0;"><strong>Add:</strong> <code>GET /add?a={num1}&b={num2}</code></p>
+            <p style="margin: 5px 0;"><strong>Subtract:</strong> <code>GET /subtract?a={num1}&b={num2}</code></p>
+            <p style="margin: 5px 0;"><strong>Multiply:</strong> <code>GET /multiply?a={num1}&b={num2}</code></p>
+            <p style="margin: 5px 0;"><strong>Divide:</strong> <code>GET /divide?a={num1}&b={num2}</code></p>
+            <p style="margin: 5px 0;"><strong>Docs:</strong> <code>GET /docs</code></p>
+        </div>
+
+        <div class="footer">
+            Deployed via GitHub Actions to AWS ECS Fargate<br>
+            Last Updated: <span id="timestamp"></span>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('/js/calculator.js') }}"></script>
+</body>
+</html>

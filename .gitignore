@@ -1,21 +1,25 @@
-# AI Usage Dashboard - Git Ignore
+# ============================================
+# Calculator API - Git Ignore
+# ============================================
 
-# Sensitive configuration
+# Environment Variables & Secrets
 .env
 .env.local
+.env.*.local
 .env.production
-claude_session_tracker_multi_model.sh
-	.DS_Store
-	ai-usage-dashboard/
-	scripts/scrum_master_agent_3questions.py
-	scrum_master_TRACKED_clean.yml
-	venv/
-
-# Database
-*.db
-*.sqlite
-*.sqlite3
-usage_data.db
+.env.staging
+.env.development
+*.env
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.cert
+secrets/
+credentials/
+.aws/
+aws-credentials
 
 # Python
 __pycache__/
@@ -23,34 +27,133 @@ __pycache__/
 *$py.class
 *.so
 .Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 venv/
 env/
 ENV/
 .venv
+env.bak/
+venv.bak/
 
-# IDE
+# Testing
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+*.cover
+*.log
+.cache
+nosetests.xml
+coverage.xml
+*.mo
+*.pot
+
+# IDEs
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
-
-# Logs
-*.log
-dashboard.log
-nohup.out
+.project
+.pydevproject
+.settings/
+*.sublime-project
+*.sublime-workspace
 
 # OS
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
+Desktop.ini
+
+# Logs
+*.log
+logs/
+*.log.*
+nohup.out
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
 
 # Temporary files
 *.tmp
 *.temp
 /tmp/
+*.bak
+*.backup
+*.old
+main.py.old
 
-.DS_Store
-venv/
+# Documentation (optional - remove if you want to track these)
+# DOCKER_FIX.md
+# DOCKERFILE_UPDATES.md
+# FRONTEND_BACKEND_SEPARATION.md
+# progress.md
+
+# Docker
+.dockerignore.bak
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath
+*.sage.py
+
+# Spyder
+.spyderproject
+.spyproject
+
+# Rope
+.ropeproject
+
+# mkdocs
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre
+.pyre/
+
+# Project-specific
 ai-usage-dashboard/
 scripts/scrum_master_agent_3questions.py
 scrum_master_TRACKED_clean.yml
+claude_session_tracker_multi_model.sh
